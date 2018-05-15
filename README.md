@@ -1,2 +1,2 @@
 # eosio-dapps
-Corey's EOSIO DApps
+EOSIO DApps Build for EOS
