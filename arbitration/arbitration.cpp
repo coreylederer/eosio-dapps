@@ -4,16 +4,17 @@
  */
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
+#include <string>
 #include <vector>
 
 using eosio::asset;
+using std::string;
 using std::vector;
 using eosio::permission_level;
 using eosio::action;
 
 class arbitration : public eosio::contract {
     public:
-        enum Status {claim, arbcase, rejected, open, closed};
         explicit arbitration(action_name self) : contract(self) {}
 
         //@abi action
@@ -225,7 +226,7 @@ class arbitration : public eosio::contract {
             }
 
             filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.bonds_dispersed = true;
+                filing.bond_dispersed = true;
             });
         }
 
@@ -261,27 +262,43 @@ class arbitration : public eosio::contract {
             });
         }
 
+        //@abi action
+        void refundbond(const uint64_t id, const asset& amount){
+
+        }
+
     private:
         //@abi table filing i64
         struct filing {
             uint64_t id;
+            string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
             account_name claimant;
             account_name respondent;
             account_name arbitrator;
-            Status status;
-            Status state = claim;
+            bool is_case = false;
+            bool is_rejected = false;
+            bool is_resolved = false;
+            bool retract_claim = false;
             asset fee;
             bool fee_paid = false;
             asset bond;
             bool bond_fronted = false;
+            bool bond_dispersed = false;
+            asset to_claimant;
+            asset to_respondent;
+            asset to_arbitrator;
             account_name ruling_for;
+            checksum256 ruling;
+            checksum256 documents;
             bool requested_remedy = false;
             bool remedy_fulfilled = false;
-            bool bond_dispersed = false;
-
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( filing, (id)(status)(claimant)(respondent)(arbitrator)(status)(state)(fee)(fee_paid)(bond)(bond_fronted)(ruling_for) )
+            EOSLIB_SERIALIZE( filing, (id)(tx_id)(claimant)(respondent)(arbitrator)
+                            (is_case)(is_rejected)(is_resolved)(retract_claim)(fee)
+                            (fee_paid)(bond)(bond_fronted)(bond_dispersed)(to_claimant)
+                            (to_respondent)(to_arbitrator)(ruling_for)(ruling)
+                            (documents)(requested_remedy)(remedy_fulfilled) )
         };
         typedef eosio::multi_index< N(filing), filing > filing_index;
 
@@ -298,4 +315,4 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(participant), participant > participant_index;
 };
 
-EOSIO_ABI( arbitration, (submit)(status)(assign)(remove) )
+EOSIO_ABI( arbitration, (submitclaim)(postbond)(updatestatus)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(requestremedy)(remedyfulfilled) )
