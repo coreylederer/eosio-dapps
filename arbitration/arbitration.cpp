@@ -4,11 +4,9 @@
  */
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
-#include <string>
 #include <vector>
 
 using eosio::asset;
-using std::string;
 using std::vector;
 using eosio::permission_level;
 using eosio::action;
@@ -271,7 +269,8 @@ class arbitration : public eosio::contract {
         //@abi table filing i64
         struct filing {
             uint64_t id;
-            string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
+            transaction_id_type tx_id;
+            signature sig;
             account_name claimant;
             account_name respondent;
             account_name arbitrator;
@@ -313,6 +312,15 @@ class arbitration : public eosio::contract {
             EOSLIB_SERIALIZE( participant, (id)(as_claimant)(as_respondent) )
         };
         typedef eosio::multi_index< N(participant), participant > participant_index;
+
+        //@abi table setfee
+        struct feeinfo {
+            asset fee;
+            asset primary_key() const { return fee; }
+            EOSLIB_SERIALIZE( feeinfo, (fee) )
+        };
+
+        typedef eosio::multi_index< N(feeinfo), feeinfo > feeinfo_index;
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(updatestatus)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(requestremedy)(remedyfulfilled) )
