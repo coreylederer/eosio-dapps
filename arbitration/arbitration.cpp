@@ -4,10 +4,12 @@
  */
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
+#include <string>
 #include <vector>
 
 using eosio::asset;
 using std::vector;
+using std::string;
 using eosio::permission_level;
 using eosio::action;
 
@@ -172,7 +174,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void changearbitrator(const uint64_t id, const account_name arbitrator) {
+        void changearb(const uint64_t id, const account_name arbitrator) {
 
             require_auth(_self);
 
@@ -228,8 +230,9 @@ class arbitration : public eosio::contract {
             });
         }
 
+        // remedy requested
         //@abi action
-        void requestremedy(const uint64_t id, const account_name arbitrator) {
+        void remedyr(const uint64_t id, const account_name arbitrator) {
 
             require_auth(arbitrator);
 
@@ -244,8 +247,9 @@ class arbitration : public eosio::contract {
             });
         }
 
+        // remedy fulfilled
         //@abi action
-        void remedyfulfilled(const uint64_t id, const account_name arbitrator) {
+        void remedyf(const uint64_t id, const account_name arbitrator) {
 
             require_auth(arbitrator);
 
@@ -265,19 +269,61 @@ class arbitration : public eosio::contract {
 
         }
 
+        //@abi action
+        void setfee(const asset& fee){
+
+        }
+
+        void add_participants(const uint64_t id, const account_name claimant, const account_name respondent){
+
+        }
+
+        void send_eos(const account_name from, const account_name to, const asset& quantity, const string memo){
+            eosio_assert(quantity.symbol == S(4,EOS) , "Only EOS tokens may be used." );
+            eosio_assert(quantity.is_valid(), "Quantity to send is not a valid asset.");
+            eosio_assert(quantity.amount > 0, "Quantity to send must be greater than zero.");
+            
+            action(
+                permission_level{ from, N(active) },
+                N(eosio.token), N(transfer),
+                std::make_tuple(from, to, quantity, std::string(memo))
+            ).send();
+        }
+
     private:
-        //@abi table filing i64
-        struct filing {
+        //@abi table claim i64
+        struct claim {
             uint64_t id;
-            transaction_id_type tx_id;
-            signature sig;
+            string tx_id;
+            string sig;
+            account_name claimant;
+            account_name respondent;
+            bool drop_claim = false;
+            bool is_rejected = false;
+            asset fee;
+            bool fee_paid = false;
+            asset bond;
+            bool bond_fronted = false;
+            checksum256 documents;
+
+            uint64_t primary_key() const { return id; }
+
+            EOSLIB_SERIALIZE( claim, (id)(tx_id)(sig)(claimant)(respondent)
+                            (drop_claim)(is_rejected)(fee)(fee_paid)(bond)
+                            (bond_fronted)(documents) )
+        };
+        typedef eosio::multi_index< N(claim), claim > claim_index;
+
+        //@abi table arbcase i64
+        struct arbcase {
+            uint64_t id;
+            string tx_id;
+            string sig;
             account_name claimant;
             account_name respondent;
             account_name arbitrator;
-            bool is_case = false;
-            bool is_rejected = false;
+            bool drop_case = false;
             bool is_resolved = false;
-            bool retract_claim = false;
             asset fee;
             bool fee_paid = false;
             asset bond;
@@ -286,20 +332,23 @@ class arbitration : public eosio::contract {
             asset to_claimant;
             asset to_respondent;
             asset to_arbitrator;
+            asset to_arbitration_forum;
             account_name ruling_for;
             checksum256 ruling;
+            checksum256 remedy;
             checksum256 documents;
             bool requested_remedy = false;
             bool remedy_fulfilled = false;
+
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( filing, (id)(tx_id)(claimant)(respondent)(arbitrator)
-                            (is_case)(is_rejected)(is_resolved)(retract_claim)(fee)
-                            (fee_paid)(bond)(bond_fronted)(bond_dispersed)(to_claimant)
-                            (to_respondent)(to_arbitrator)(ruling_for)(ruling)
-                            (documents)(requested_remedy)(remedy_fulfilled) )
+            EOSLIB_SERIALIZE( arbcase, (id)(tx_id)(sig)(claimant)(respondent)(arbitrator)
+                            (drop_case)(is_resolved)(fee)(fee_paid)(bond)(bond_fronted)
+                            (bond_dispersed)(to_claimant)(to_respondent)(to_arbitrator)
+                            (to_arbitration_forum)(ruling_for)(ruling)(remedy)(documents)
+                            (requested_remedy)(remedy_fulfilled) )
         };
-        typedef eosio::multi_index< N(filing), filing > filing_index;
+        typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
         //@abi table participant i64
         struct participant {
@@ -323,4 +372,4 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(feeinfo), feeinfo > feeinfo_index;
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(postbond)(updatestatus)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(requestremedy)(remedyfulfilled) )
+EOSIO_ABI( arbitration, (submitclaim)(postbond)(updatestatus)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(remedyr)(remedyf) )
