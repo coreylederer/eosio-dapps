@@ -4,6 +4,7 @@
  */
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
+#include <eosiolib/singleton.hpp>
 #include <string>
 #include <vector>
 
@@ -15,7 +16,13 @@ using eosio::action;
 
 class arbitration : public eosio::contract {
     public:
-        explicit arbitration(action_name self) : contract(self) {}
+        explicit arbitration(action_name self) : contract(self) {
+            asset fee;
+            fee.symbol == S(4,EOS);
+            fee.amount = 5;
+            current_fee fee_index(_self,_self);
+            fee_index.get_or_create(_self,feeinfo{fee});
+        }
 
         //@abi action
         void submitclaim(const account_name claimant, const account_name respondent, const asset& fee) {
@@ -23,6 +30,8 @@ class arbitration : public eosio::contract {
             require_auth(claimant);
             eosio_assert(fee.is_valid(), "Submitted fee is not a valid asset.");
             eosio_assert(fee.amount == 10, "Filing fee is 10 EOS.");
+
+
 
             filing_index filings(_self, _self);
 
@@ -270,8 +279,11 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void setfee(const asset& fee){
-
+        void setarbfee(const asset& fee){
+            require_auth(_self);
+            arbfee new_arbfee{fee};
+            arbfee_index current_arbfee(_self,_self);
+            current_arbfee.set(new_arbfee,_self);
         }
 
         void add_participants(const uint64_t id, const account_name claimant, const account_name respondent){
@@ -362,14 +374,13 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(participant), participant > participant_index;
 
-        //@abi table setfee
-        struct feeinfo {
-            asset fee;
-            asset primary_key() const { return fee; }
-            EOSLIB_SERIALIZE( feeinfo, (fee) )
+        //@abi table arbfee
+        struct arbfee {
+            asset fee{5};
+            EOSLIB_SERIALIZE( arbfee, (fee) )
         };
 
-        typedef eosio::multi_index< N(feeinfo), feeinfo > feeinfo_index;
+        typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(updatestatus)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(remedyr)(remedyf) )
