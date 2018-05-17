@@ -16,108 +16,81 @@ using eosio::action;
 
 class arbitration : public eosio::contract {
     public:
-        explicit arbitration(action_name self) : contract(self) {
-            asset fee;
-            fee.symbol == S(4,EOS);
-            fee.amount = 5;
-            current_fee fee_index(_self,_self);
-            fee_index.get_or_create(_self,feeinfo{fee});
-        }
+        explicit arbitration(action_name self) : contract(self) {}
 
         //@abi action
-        void submitclaim(const account_name claimant, const account_name respondent, const asset& fee) {
+        void submitclaim(const account_name claimant, const account_name respondent,
+                         const string& tx_id, const string& sig, const checksum256& docs,
+                         const asset& fee) {
 
             require_auth(claimant);
-            eosio_assert(fee.is_valid(), "Submitted fee is not a valid asset.");
-            eosio_assert(fee.amount == 10, "Filing fee is 10 EOS.");
-
-
-
-            filing_index filings(_self, _self);
-
-            action(
-                permission_level{ claimant, N(active) },
-                N(eosio.token), N(transfer),
-                std::make_tuple(claimant, _self, fee, std::string("Paying fee to submit claim."))
-            ).send();
-
-            filings.emplace(claimant, [&](auto& filing) {
-                filing.id = filings.available_primary_key();
-                filing.claimant = claimant;
-                filing.respondent = respondent;
-                filing.state = claim;
-                filing.fee = fee;
-                filing.fee_paid = true;
+            validate_asset(fee);
+            check_fee(fee);
+            send_eos(claimant, _self, fee, "Paying fee to submit claim.");
+  
+            claim_index claims(_self, _self);
+            claims.emplace(claimant, [&](auto& claim) {
+                claim.id = claims.available_primary_key();
+                claim.claimant = claimant;
+                claim.respondent = respondent;
+                claim.tx_id = tx_id;
+                claim.documents = docs;
+                claim.sig = sig;
+                claim.fee = fee;
+                claim.fee_paid = true;
             });
         }
 
         //@abi action
-        void postbond(const uint64_t id, const asset& bond) {
+        void postbond(const uint64_t claim_id, const asset& bond) {
 
             require_auth(_self);
+            validate_asset(bond);
 
-            filing_index filings(_self, _self);
+            claim_index claims(_self, _self);
+            auto itr = claims.find(claim_id);
+            eosio_assert(itr != claims.end(), "Claim id not found.");
 
-            auto itr = filings.find(id);
-            eosio_assert(itr != filings.end(), "Filing id not found.");
-
-            filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.bond = bond;
+            claims.modify( itr, 0, [&]( auto& claim ) {
+                claim.bond = bond;
             });
         }
 
         //@abi action
-        void updatestatus(const uint64_t id, const Status status) {
-
-            require_auth(_self);
-
-            filing_index filings(_self, _self);
-
-            auto itr = filings.find(id);
-            eosio_assert(itr != filings.end(), "Filing id not found.");
-
-            filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.status = status;
-            });
-        }
-
-        //@abi action
-        void frontbond(const uint64_t id, const asset& bond, const account_name claimant) {
+        void frontbond(const uint64_t claim_id, const account_name claimant, const asset& bond) {
 
             require_auth(claimant);
-            eosio_assert(bond.is_valid(), "Submitted bond is not a valid asset.");
+            validate_asset(bond);
+            check_bond(claim_id, bond);
+            send_eos(claimant, _self, bond, "Fronting bond for case.");
 
-            filing_index filings(_self, _self);
-            auto itr = filings.find(id);
-            eosio_assert(itr != filings.end(), "Filing id not found.");
-            eosio_assert(bond.amount == itr->bond.amount, "Fronted bond amount is not adequate.");
-
-            action(
-                permission_level{ claimant, N(active) },
-                N(eosio.token), N(transfer),
-                std::make_tuple(claimant, _self, bond, std::string("Fronting bond for claim."))
-            ).send();
-
-            filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.bond_fronted = true;
+            claim_index claims(_self, _self);
+            auto itr = claims.find(claim_id);
+            eosio_assert(itr != claims.end(), "Filing id not found.");
+            claims.modify( itr, 0, [&]( auto& claim ) {
+                claim.bond_fronted = true;
             });
         }
 
         //@abi action
-        void opencase(const uint64_t id, const account_name arbitrator) {
+        void opencase(const uint64_t claim_id, const account_name arbitrator) {
 
             require_auth(_self);
 
-            filing_index filings(_self, _self);
+            claim_index claims(_self, _self);
+            auto claim_to_open = claims.get(claim_id);
+            eosio_assert(claim_to_open.bond_fronted, "Bond has not been fronted, cannot open case.");
 
-            auto filing_itr = filings.find(id);
-            eosio_assert(filing_itr != filings.end(), "Filing id not found.");
-            eosio_assert(filing_itr->bond_fronted, "Bond has not been fronted, cannot open case.");
-
-            filings.modify( filing_itr, 0, [&]( auto& filing ) {
-                filing.status = open;
-                filing.state = arbcase;
-                filing.arbitrator = arbitrator;
+            arbcase_index arbcases(_self, _self);
+            arbcases.emplace(_self, [&](auto& arbcase) {
+                arbcase.id = arbcases.available_primary_key();
+                claim.claimant = claimant;
+                claim.respondent = respondent;
+                claim.tx_id = tx_id;
+                claim.documents = docs;
+                claim.sig = sig;
+                claim.fee = fee;
+                claim.fee_paid = true;
             });
 
             participant_index participants(_self, _self);
@@ -290,11 +263,24 @@ class arbitration : public eosio::contract {
 
         }
 
-        void send_eos(const account_name from, const account_name to, const asset& quantity, const string memo){
-            eosio_assert(quantity.symbol == S(4,EOS) , "Only EOS tokens may be used." );
-            eosio_assert(quantity.is_valid(), "Quantity to send is not a valid asset.");
-            eosio_assert(quantity.amount > 0, "Quantity to send must be greater than zero.");
-            
+        void check_fee(const asset& fee){
+            arbfee_index current_arbfee(_self,_self);
+            eosio_assert(fee.amount == current_arbfee.get().fee.amount, "Fee amount is not adequate.");
+        }
+
+        void check_bond(const uint64_t id, const asset& bond){
+            claim_index claims(_self, _self);
+            auto claim_to_check = claims.get(id);
+            eosio_assert(bond.amount == claim_to_check.bond.amount, "Bond amount is not adequate.");
+        }
+
+        void validate_asset(const asset& quantity){
+            eosio_assert(quantity.symbol == S(4,EOS), "Only EOS tokens may be used." );
+            eosio_assert(quantity.is_valid(), "Not a valid asset.");
+            eosio_assert(quantity.amount > 0, "Amount must be greater than zero.");
+        }
+
+        void send_eos(const account_name from, const account_name to, const asset& quantity, const string& memo){            
             action(
                 permission_level{ from, N(active) },
                 N(eosio.token), N(transfer),
@@ -306,10 +292,10 @@ class arbitration : public eosio::contract {
         //@abi table claim i64
         struct claim {
             uint64_t id;
-            string tx_id;
-            string sig;
             account_name claimant;
             account_name respondent;
+            string tx_id;
+            string sig;
             bool drop_claim = false;
             bool is_rejected = false;
             asset fee;
@@ -320,7 +306,7 @@ class arbitration : public eosio::contract {
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( claim, (id)(tx_id)(sig)(claimant)(respondent)
+            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(tx_id)(sig)
                             (drop_claim)(is_rejected)(fee)(fee_paid)(bond)
                             (bond_fronted)(documents) )
         };
@@ -376,11 +362,11 @@ class arbitration : public eosio::contract {
 
         //@abi table arbfee
         struct arbfee {
-            asset fee{5};
+            asset fee{2};
             EOSLIB_SERIALIZE( arbfee, (fee) )
         };
 
         typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(postbond)(updatestatus)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(remedyr)(remedyf) )
+EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(remedyr)(remedyf) )
