@@ -22,7 +22,6 @@ class arbitration : public eosio::contract {
         void submitclaim(const account_name claimant, const account_name respondent,
                          const string& tx_id, const string& sig, const checksum256& docs,
                          const asset& fee) {
-
             require_auth(claimant);
             validate_asset(fee);
             check_fee(fee);
@@ -43,137 +42,150 @@ class arbitration : public eosio::contract {
 
         //@abi action
         void postbond(const uint64_t claim_id, const asset& bond) {
-
             require_auth(_self);
             validate_asset(bond);
 
             claim_index claims(_self, _self);
-            auto itr = claims.find(claim_id);
-            eosio_assert(itr != claims.end(), "Claim id not found.");
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
 
-            claims.modify( itr, 0, [&]( auto& claim ) {
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.bond = bond;
             });
         }
 
         //@abi action
         void frontbond(const uint64_t claim_id, const account_name claimant, const asset& bond) {
-
             require_auth(claimant);
+
             validate_asset(bond);
             check_bond(claim_id, bond);
             send_eos(claimant, _self, bond, "Fronting bond for case.");
 
             claim_index claims(_self, _self);
-            auto itr = claims.find(claim_id);
-            eosio_assert(itr != claims.end(), "Filing id not found.");
-            claims.modify( itr, 0, [&]( auto& claim ) {
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr != claims.end(), "Filing id not found.");
+
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.bond_fronted = true;
             });
         }
 
         //@abi action
-        void opencase(const uint64_t claim_id, const account_name arbitrator) {
-
+        void opencase(const uint64_t claim_id) {
             require_auth(_self);
 
             claim_index claims(_self, _self);
-            auto claim_to_open = claims.get(claim_id);
-            eosio_assert(claim_to_open.bond_fronted, "Bond has not been fronted, cannot open case.");
+            auto ctoac = claims.get(claim_id); // claim to open as case
+            eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
 
             arbcase_index arbcases(_self, _self);
             arbcases.emplace(_self, [&](auto& arbcase) {
-                arbcase.id = arbcases.available_primary_key();
-                claim.claimant = claimant;
-                claim.respondent = respondent;
-                claim.tx_id = tx_id;
-                claim.documents = docs;
-                claim.sig = sig;
-                claim.fee = fee;
-                claim.fee_paid = true;
+                arbcase.id              = arbcase.available_primary_key();
+                arbcase.claimant        = ctoac.claimant;
+                arbcase.respondent      = ctoac.respondent;
+                arbcase.fee             = ctoac.fee;
+                arbcase.fee_paid        = ctoac.fee_paid;
+                arbcase.bond            = ctoac.bond;
+                arbcase.bond_fronted    = ctoac.bond_fronted;
+                arbcase.documents       = ctoac.documents;
+                arbcase.tx_id           = ctoac.tx_id;
+                arbcase.sig             = ctoac.sig;
             });
-
-            participant_index participants(_self, _self);
-
-            auto participant_itr = participants.find(filing_itr->claimant);
-            if (participant_itr == participants.end()){
-                participants.emplace(_self, [&](auto& participant) {
-                    participant.id = filing_itr->claimant;
-                    participant.as_claimant.push_back(filing_itr->id);
-                });
-            } else {
-                participants.modify( participant_itr, 0, [&]( auto& participant ) {
-                    participant.as_claimant.push_back(filing_itr->id);
-                });
-            }
-
-            participant_itr = participants.find(filing_itr->respondent);
-            if (participant_itr == participants.end()){
-                participants.emplace(_self, [&](auto& participant) {
-                    participant.id = filing_itr->respondent;
-                    participant.as_respondent.push_back(filing_itr->id);
-                });
-            } else {
-                participants.modify( participant_itr, 0, [&]( auto& participant ) {
-                    participant.as_respondent.push_back(filing_itr->id);
-                });
-            }
+            
+            log_claimant(claim_id, ctoac.claimant);
+            log_respondent(claim_id, ctoac.respondent);
         }
 
         //@abi action
-        void submitruling(const uint64_t id, const account_name victor, const account_name arbitrator) {
+        void dropclaim(const uint64_t claim_id, const account_name claimant){
+            require_auth(claimant);
 
-            require_auth(arbitrator);
+            claim_index claims(_self, _self);
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
 
-            filing_index filings(_self, _self);
-
-            auto itr = filings.find(id);
-            eosio_assert(itr != filings.end(), "Filing id not found.");
-
-            eosio_assert(itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
-
-            filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.ruling_for = victor;
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
+                claim.claim_dropped = true;
             });
         }
 
         //@abi action
-        void closecase(const uint64_t id, const account_name arbitrator) {
+        void dropcase(const uint64_t case_id, const account_name claimant){
+            require_auth(claimant);
 
-            require_auth(arbitrator);
+            arbcase_index arbcases(_self, _self);
+            auto arbcase_itr = arbcases.find(case_id);
+            eosio_assert(arbcase_itr != arbcases.end(), "Filing id not found.");
+            eosio_assert(arbcase_itr->claimant == claimant, "You are not the claimant in this case.");
 
-            filing_index filings(_self, _self);
-
-            auto itr = filings.find(id);
-            eosio_assert(itr != filings.end(), "Filing id not found.");
-            eosio_assert(itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
-            eosio_assert(itr->bond_dispersed,"Bond has not yet been dispersed.");
-            eosio_assert(itr->remedy_fulfilled,"Remedy has not yet been fulfilled.");
-
-            filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.status = closed;
+            arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
+                arbcase.claim_dropped = true;
             });
         }
 
         //@abi action
-        void changearb(const uint64_t id, const account_name arbitrator) {
-
+        void rejectclaim(const uint64_t claim_id, const checksum256& reason){
             require_auth(_self);
 
-            filing_index filings(_self, _self);
+            claim_index claims(_self, _self);
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
 
-            auto itr = filings.find(id);
-            eosio_assert(itr != filings.end(), "Filing id not found.");
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
+                claim.is_rejected = true;
+                claim.rejection_reason = reason;
+            });
+        }
 
-            filings.modify( itr, 0, [&]( auto& filing ) {
-                filing.arbitrator = arbitrator;
+        //@abi action
+        void submitruling(const uint64_t case_id, const account_name victor, const checksum256& ruling, const account_name arbitrator) {
+            require_auth(arbitrator);
+
+            arbcase_index arbcases(_self, _self);
+            auto arbcase_itr = arbcases.find(case_id);
+            eosio_assert(arbcase_itr != arbcases.end(), "Filing id not found.");
+            eosio_assert(arbcase_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
+
+            arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
+                arbcase.ruling_for = victor;
+                arbcae.ruling = ruling;
+            });
+        }
+
+        //@abi action
+        void closecase(const uint64_t case_id, const account_name arbitrator) {
+            require_auth(arbitrator);
+
+            arbcase_index arbcases(_self, _self);
+            auto arbcase_itr = arbcases.find(case_id);
+            eosio_assert(arbcase_itr != arbcases.end(), "Filing id not found.");
+
+            eosio_assert(arbcase_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
+            eosio_assert(arbcase_itr->bond_dispersed,"Bond has not yet been dispersed.");
+            eosio_assert(arbcase_itr->remedy_fulfilled,"Remedy has not yet been fulfilled.");
+
+            arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
+                arbcase.status = closed;
+            });
+        }
+
+        //@abi action
+        void assignarb(const uint64_t arbcase_id, const account_name arbitrator) {
+            require_auth(_self);
+
+            arbcase_index arbcases(_self, _self);
+            auto itr = arbcases.find(arbcase_id);
+            eosio_assert(itr != arbcases.end(), "Arb case id not found.");
+
+            arbcases.modify( itr, 0, [&]( auto& arbcase ) {
+                arbcase.arbitrator = arbitrator;
             });
         }
 
         //@abi action
         void dispersebond(  const uint64_t id, const asset& toclaimant, const asset& torespondent,
                             const asset& toarbitrator, const account_name arbitrator) {
-
             require_auth(arbitrator);
 
             filing_index filings(_self, _self);
@@ -215,7 +227,6 @@ class arbitration : public eosio::contract {
         // remedy requested
         //@abi action
         void remedyr(const uint64_t id, const account_name arbitrator) {
-
             require_auth(arbitrator);
 
             filing_index filings(_self, _self);
@@ -232,7 +243,6 @@ class arbitration : public eosio::contract {
         // remedy fulfilled
         //@abi action
         void remedyf(const uint64_t id, const account_name arbitrator) {
-
             require_auth(arbitrator);
 
             filing_index filings(_self, _self);
@@ -259,8 +269,34 @@ class arbitration : public eosio::contract {
             current_arbfee.set(new_arbfee,_self);
         }
 
-        void add_participants(const uint64_t id, const account_name claimant, const account_name respondent){
+        void log_claimant(const uint64_t id, const account_name claimant){
+            participant_index participants(_self, _self);
+            auto participant_itr = participants.find(claimant);
+            if (participant_itr == participants.end()){
+                participants.emplace(_self, [&](auto& participant) {
+                    participant.id = claimant;
+                    participant.as_claimant.push_back(id);
+                });
+            } else {
+                participants.modify( participant_itr, 0, [&]( auto& participant ) {
+                    participant.as_claimant.push_back(id);
+                });
+            }
+        }
 
+        void log_respondent(const uint64_t id, const account_name respondent){
+            participant_index participants(_self, _self);
+            auto participant_itr = participants.find(respondent);
+            if (participant_itr == participants.end()){
+                participants.emplace(_self, [&](auto& participant) {
+                    participant.id = respondent;
+                    participant.as_respondent.push_back(id);
+                });
+            } else {
+                participants.modify( participant_itr, 0, [&]( auto& participant ) {
+                    participant.as_claimant.push_back(id);
+                });
+            }
         }
 
         void check_fee(const asset& fee){
@@ -268,9 +304,9 @@ class arbitration : public eosio::contract {
             eosio_assert(fee.amount == current_arbfee.get().fee.amount, "Fee amount is not adequate.");
         }
 
-        void check_bond(const uint64_t id, const asset& bond){
+        void check_bond(const uint64_t claim_id, const asset& bond){
             claim_index claims(_self, _self);
-            auto claim_to_check = claims.get(id);
+            auto claim_to_check = claims.get(claim_id);
             eosio_assert(bond.amount == claim_to_check.bond.amount, "Bond amount is not adequate.");
         }
 
@@ -296,8 +332,9 @@ class arbitration : public eosio::contract {
             account_name respondent;
             string tx_id;
             string sig;
-            bool drop_claim = false;
+            bool claim_dropped = false;
             bool is_rejected = false;
+            checksum256 rejection_reason;
             asset fee;
             bool fee_paid = false;
             asset bond;
@@ -307,7 +344,7 @@ class arbitration : public eosio::contract {
             uint64_t primary_key() const { return id; }
 
             EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(tx_id)(sig)
-                            (drop_claim)(is_rejected)(fee)(fee_paid)(bond)
+                            (claim_dropped)(is_rejected)(fee)(fee_paid)(bond)
                             (bond_fronted)(documents) )
         };
         typedef eosio::multi_index< N(claim), claim > claim_index;
@@ -315,8 +352,6 @@ class arbitration : public eosio::contract {
         //@abi table arbcase i64
         struct arbcase {
             uint64_t id;
-            string tx_id;
-            string sig;
             account_name claimant;
             account_name respondent;
             account_name arbitrator;
@@ -335,6 +370,8 @@ class arbitration : public eosio::contract {
             checksum256 ruling;
             checksum256 remedy;
             checksum256 documents;
+            string tx_id;
+            string sig;
             bool requested_remedy = false;
             bool remedy_fulfilled = false;
 
@@ -370,3 +407,5 @@ class arbitration : public eosio::contract {
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(remedyr)(remedyf) )
+
+// TODO: remove claim row
