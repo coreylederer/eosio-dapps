@@ -393,6 +393,6 @@ class arbitration : public eosio::contract {
         typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(submitruling)(closecase)(changearbitrator)(dispersebond)(remedyr)(remedyf) )
+EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf) )
 
 // TODO: remove claim row
