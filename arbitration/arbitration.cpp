@@ -20,8 +20,7 @@ class arbitration : public eosio::contract {
 
         //@abi action
         void submitclaim(const account_name claimant, const account_name respondent,
-                         const string& tx_id, const string& sig, const checksum256& docs,
-                         const asset& fee) {
+                         const string& tx_id, const checksum256& docs, const asset& fee) {
             require_auth(claimant);
             validate_asset(fee);
             check_fee(fee);
@@ -34,7 +33,6 @@ class arbitration : public eosio::contract {
                 claim.respondent = respondent;
                 claim.tx_id = tx_id;
                 claim.documents = docs;
-                claim.sig = sig;
                 claim.fee = fee;
                 claim.fee_paid = true;
             });
@@ -111,7 +109,6 @@ class arbitration : public eosio::contract {
                 arbcase.bond_fronted    = ctoac.bond_fronted;
                 arbcase.documents       = ctoac.documents;
                 arbcase.tx_id           = ctoac.tx_id;
-                arbcase.sig             = ctoac.sig;
             });
             
             log_claimant(claim_id, ctoac.claimant);
@@ -357,13 +354,12 @@ class arbitration : public eosio::contract {
             bool bond_fronted = false;
             checksum256 documents;
             string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
-            string sig = "0000000000000000000000000000000000000000000000000000000000000000";
 
             uint64_t primary_key() const { return id; }
 
             EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(claim_dropped)(is_rejected)
                             (rejection_reason)(fee)(fee_paid)(bond)(bond_fronted)(documents)
-                            (tx_id)(sig) )
+                            (tx_id) )
         };
         typedef eosio::multi_index< N(claim), claim > claim_index;
 
@@ -391,7 +387,6 @@ class arbitration : public eosio::contract {
             bool remedy_fulfilled = false;
             checksum256 documents;
             string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
-            string sig = "0000000000000000000000000000000000000000000000000000000000000000";
 
             uint64_t primary_key() const { return id; }
 
@@ -399,7 +394,7 @@ class arbitration : public eosio::contract {
                             (is_resolved)(fee)(fee_paid)(bond)(bond_fronted)(bond_dispersed)
                             (to_claimant)(to_respondent)(to_arbitrator)(to_arbitration_forum)
                             (in_favor_of)(ruling)(remedy)(requested_remedy)(remedy_fulfilled)
-                            (documents)(tx_id)(sig) )
+                            (documents)(tx_id) )
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
