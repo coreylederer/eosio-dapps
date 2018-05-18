@@ -256,7 +256,7 @@ class arbitration : public eosio::contract {
             eosio_assert(fee.amount > 0, "Fee must be greater than zero.");
 
             arbfee_index arbfees(_self, _self);
-            auto arbfee_itr = arbfees.find(0);
+            auto arbfee_itr = arbfees.begin();
 
             if (arbfee_itr == arbfees.end()) {
                 arbfees.emplace(_self, [&](auto& arbfee) {
@@ -301,7 +301,7 @@ class arbitration : public eosio::contract {
 
         void check_fee(const asset& fee){
             arbfee_index arbfees(_self, _self);
-            eosio_assert(fee.amount == arbfees.get(0).fee.amount, "Fee amount is not adequate.");
+            eosio_assert(fee.amount == arbfees.begin()->fee.amount, "Fee amount is not adequate.");
         }
 
         void check_bond(const uint64_t claim_id, const asset& bond){
@@ -397,12 +397,11 @@ class arbitration : public eosio::contract {
 
         //@abi table arbfee i64
         struct arbfee {
-            uint64_t id = 0;
             asset fee{S(4,EOS), 1};
 
-            uint64_t primary_key() const { return id; }
+            int64_t primary_key() const { return fee.amount; }
 
-            EOSLIB_SERIALIZE( arbfee, (id)(fee) )
+            EOSLIB_SERIALIZE( arbfee, (fee) )
         };
 
         typedef eosio::multi_index< N(arbfee), arbfee > arbfee_index;
