@@ -266,7 +266,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void setarbfee(const asset& fee){
+        void setarbfee(const asset& fee) {
             require_auth(_self);
 
             validate_asset(fee);
@@ -281,8 +281,8 @@ class arbitration : public eosio::contract {
                 });
             } else {
                 arbfees.modify( arbfee_itr, 0, [&]( auto& arbfee ) {
-                arbfee.fee = fee;
-            });
+                    arbfee.fee = fee;
+                });
             }
         }
 
@@ -318,7 +318,12 @@ class arbitration : public eosio::contract {
 
         void check_fee(const asset& fee){
             arbfee_index arbfees(_self, _self);
-            eosio_assert(fee.amount == arbfees.begin()->fee.amount, "Fee amount is not adequate.");
+            auto arbfee_itr = arbfees.begin();
+            if (arbfee_itr != arbfees.end()) {
+                eosio_assert(fee.amount == arbfee_itr->fee.amount, "Fee amount is not adequate.");
+            } else {
+                eosio_assert(0,"Arbitration forum needs to set the fee.");
+            }
         }
 
         void check_bond(const uint64_t claim_id, const asset& bond){
@@ -422,6 +427,6 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(arbfee), arbfee > arbfee_index;
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf) )
+EOSIO_ABI( arbitration, (submitclaim)(deleteclaim)(deletecase)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
 
 // TODO: GUARDS on when a claim and case can be deleted
