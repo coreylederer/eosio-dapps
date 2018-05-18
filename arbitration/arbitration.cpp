@@ -251,10 +251,22 @@ class arbitration : public eosio::contract {
         //@abi action
         void setarbfee(const asset& fee){
             require_auth(_self);
+
+            validate_asset(fee);
             eosio_assert(fee.amount > 0, "Fee must be greater than zero.");
-            arbfee new_arbfee{fee};
-            arbfee_index current_arbfee(_self, _self);
-            current_arbfee.set(new_arbfee, _self);
+
+            arbfee_index arbfees(_self, _self);
+            auto arbfee_itr = arbfees.find(0);
+
+            if (arbfee_itr == arbfees.end()) {
+                arbfees.emplace(_self, [&](auto& arbfee) {
+                    arbfee.fee = fee;
+                });
+            } else {
+                arbfees.modify( arbfee_itr, 0, [&]( auto& arbfee ) {
+                arbfee.fee = fee;
+            });
+            }
         }
 
         void log_claimant(const uint64_t id, const account_name claimant){
@@ -288,14 +300,13 @@ class arbitration : public eosio::contract {
         }
 
         void check_fee(const asset& fee){
-            arbfee_index current_arbfee(_self,_self);
-            eosio_assert(fee.amount == current_arbfee.get().fee.amount, "Fee amount is not adequate.");
+            arbfee_index arbfees(_self, _self);
+            eosio_assert(fee.amount == arbfees.get(0).fee.amount, "Fee amount is not adequate.");
         }
 
         void check_bond(const uint64_t claim_id, const asset& bond){
             claim_index claims(_self, _self);
-            auto claim_to_check = claims.get(claim_id);
-            eosio_assert(bond.amount == claim_to_check.bond.amount, "Bond amount is not adequate.");
+            eosio_assert(bond.amount == claims.get(claim_id).bond.amount, "Bond amount is not adequate.");
         }
 
         void validate_asset(const asset& quantity){
@@ -384,13 +395,17 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(participant), participant > participant_index;
 
-        //@abi table arbfee
+        //@abi table arbfee i64
         struct arbfee {
+            uint64_t id = 0;
             asset fee{S(4,EOS), 1};
-            EOSLIB_SERIALIZE( arbfee, (fee) )
+
+            uint64_t primary_key() const { return id; }
+
+            EOSLIB_SERIALIZE( arbfee, (id)(fee) )
         };
 
-        typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
+        typedef eosio::multi_index< N(arbfee), arbfee > arbfee_index;
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf) )
