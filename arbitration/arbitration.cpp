@@ -273,17 +273,8 @@ class arbitration : public eosio::contract {
             eosio_assert(fee.amount > 0, "Fee must be greater than zero.");
 
             arbfee_index arbfees(_self, _self);
-            auto arbfee_itr = arbfees.find(0);
-
-            if (arbfee_itr == arbfees.end()) {
-                arbfees.emplace(_self, [&](auto& arbfee) {
-                    arbfee.fee = fee;
-                });
-            } else {
-                arbfees.modify( arbfee_itr, 0, [&]( auto& arbfee ) {
-                    arbfee.fee = fee;
-                });
-            }
+            arbfee new_arbfee{0,fee};
+            arbfees.set(new_arbfee, _self);
         }
 
         void log_claimant(const uint64_t id, const account_name claimant){
@@ -318,12 +309,8 @@ class arbitration : public eosio::contract {
 
         void check_fee(const asset& fee){
             arbfee_index arbfees(_self, _self);
-            auto arbfee_itr = arbfees.find(0);
-            if (arbfee_itr != arbfees.end()) {
-                eosio_assert(fee.amount == arbfee_itr->fee.amount, "Fee amount is not adequate.");
-            } else {
-                eosio_assert(0,"Arbitration forum needs to set the fee.");
-            }
+            eosio_assert(arbfees.exists(), "Arbitration forum needs to set the fee.");
+            eosio_assert(fee.amount == arbfees.get().fee.amount, "Fee amount is not adequate.");
         }
 
         void check_bond(const uint64_t claim_id, const asset& bond){
@@ -417,7 +404,7 @@ class arbitration : public eosio::contract {
 
         //@abi table arbfee i64
         struct arbfee {
-            uint64_t id{0};
+            uint64_t id;
             asset fee;
 
             uint64_t primary_key() const { return id; }
@@ -425,7 +412,7 @@ class arbitration : public eosio::contract {
             EOSLIB_SERIALIZE( arbfee, (id)(fee) )
         };
 
-        typedef eosio::multi_index< N(arbfee), arbfee > arbfee_index;
+        typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(deleteclaim)(deletecase)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
