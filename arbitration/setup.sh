@@ -12,9 +12,19 @@ cleos --wallet-url http://localhost:8899 create account eosio arbitration EOS6Kt
 
 cleos --wallet-url http://localhost:8899 create account eosio eosio.token EOS8i5AWoDuG2szDqHGpjWppuiSWzPqBTBSApgmvpgPPAv572ytT9 EOS8DXKH2PYSvJ3iu4mJdEjWaZjdKZWH18zFnQ6G3tRMm43nfAsnw
 
+#
+
+# pause for effect (let the chain update)#
+sleep 1
+
 cleos --wallet-url http://localhost:8899 set contract eosio /Users/joneric/eos/build/contracts/eosio.bios -p eosio
 
 cleos --wallet-url http://localhost:8899 set contract eosio.token /Users/joneric/eos/build/contracts/eosio.token -p eosio.token
+
+#
+# pause for effect (let the chain update)
+#
+sleep 1
 
 cleos --wallet-url http://localhost:8899 push action eosio.token create '[ "eosio", "1000000000.0000 EOS", 0, 0, 0]' -p eosio.token
 
