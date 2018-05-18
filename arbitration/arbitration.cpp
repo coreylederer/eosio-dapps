@@ -82,7 +82,7 @@ class arbitration : public eosio::contract {
 
             arbcase_index arbcases(_self, _self);
             arbcases.emplace(_self, [&](auto& arbcase) {
-                arbcase.id              = arbcase.available_primary_key();
+                arbcase.id              = arbcases.available_primary_key();
                 arbcase.claimant        = ctoac.claimant;
                 arbcase.respondent      = ctoac.respondent;
                 arbcase.fee             = ctoac.fee;
@@ -121,7 +121,7 @@ class arbitration : public eosio::contract {
             eosio_assert(arbcase_itr->claimant == claimant, "You are not the claimant in this case.");
 
             arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                arbcase.clase_dropped = true;
+                arbcase.case_dropped = true;
             });
         }
 
@@ -140,7 +140,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void submitruling(const uint64_t case_id, const account_name winner, const checksum256& ruling, const account_name arbitrator) {
+        void submitruling(const uint64_t case_id, const account_name party, const checksum256& ruling, const account_name arbitrator) {
             require_auth(arbitrator);
 
             arbcase_index arbcases(_self, _self);
@@ -149,8 +149,8 @@ class arbitration : public eosio::contract {
             eosio_assert(arbcase_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
 
             arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                arbcase.winner = winner;
-                arbcae.ruling = ruling;
+                arbcase.in_favor_of = party;
+                arbcase.ruling = ruling;
             });
         }
 
@@ -167,7 +167,7 @@ class arbitration : public eosio::contract {
             eosio_assert(arbcase_itr->remedy_fulfilled,"Remedy has not yet been fulfilled.");
 
             arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                arbcase.status = closed;
+                arbcase.is_resolved = true;
             });
         }
 
@@ -252,7 +252,7 @@ class arbitration : public eosio::contract {
         void setarbfee(const asset& fee){
             require_auth(_self);
             eosio_assert(fee.amount > 0, "Fee must be greater than zero.");
-            arbfee new_arbfee{fee};
+            arbfee new_arbfee{0,fee};
             arbfee_index current_arbfee(_self, _self);
             current_arbfee.set(new_arbfee, _self);
         }
@@ -317,8 +317,6 @@ class arbitration : public eosio::contract {
             uint64_t id;
             account_name claimant;
             account_name respondent;
-            string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
-            string sig = "0000000000000000000000000000000000000000000000000000000000000000";
             bool claim_dropped = false;
             bool is_rejected = false;
             checksum256 rejection_reason;
@@ -327,12 +325,14 @@ class arbitration : public eosio::contract {
             asset bond;
             bool bond_fronted = false;
             checksum256 documents;
+            string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
+            string sig = "0000000000000000000000000000000000000000000000000000000000000000";
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(tx_id)(sig)
-                            (claim_dropped)(is_rejected)(fee)(fee_paid)(bond)
-                            (bond_fronted)(documents) )
+            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(claim_dropped)(is_rejected)
+                            (rejection_reason)(fee)(fee_paid)(bond)(bond_fronted)(documents)
+                            (tx_id)(sig) )
         };
         typedef eosio::multi_index< N(claim), claim > claim_index;
 
@@ -342,7 +342,7 @@ class arbitration : public eosio::contract {
             account_name claimant;
             account_name respondent;
             account_name arbitrator;
-            bool drop_case = false;
+            bool case_dropped = false;
             bool is_resolved = false;
             asset fee;
             bool fee_paid = false;
@@ -353,7 +353,7 @@ class arbitration : public eosio::contract {
             asset to_respondent;
             asset to_arbitrator;
             asset to_arbitration_forum;
-            account_name winner;
+            account_name in_favor_of;
             checksum256 ruling;
             checksum256 remedy;
             bool requested_remedy = false;
@@ -364,11 +364,11 @@ class arbitration : public eosio::contract {
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( arbcase, (id)(tx_id)(sig)(claimant)(respondent)(arbitrator)
-                            (drop_case)(is_resolved)(fee)(fee_paid)(bond)(bond_fronted)
-                            (bond_dispersed)(to_claimant)(to_respondent)(to_arbitrator)
-                            (to_arbitration_forum)(winner)(ruling)(remedy)(documents)
-                            (requested_remedy)(remedy_fulfilled) )
+            EOSLIB_SERIALIZE( arbcase, (id)(claimant)(respondent)(arbitrator)(case_dropped)
+                            (is_resolved)(fee)(fee_paid)(bond)(bond_fronted)(bond_dispersed)
+                            (to_claimant)(to_respondent)(to_arbitrator)(to_arbitration_forum)
+                            (in_favor_of)(ruling)(remedy)(requested_remedy)(remedy_fulfilled)
+                            (documents)(tx_id)(sig) )
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
@@ -386,11 +386,11 @@ class arbitration : public eosio::contract {
 
         //@abi table arbfee
         struct arbfee {
-            asset fee{2};
+            asset fee{S(4,EOS), 1};
             EOSLIB_SERIALIZE( arbfee, (fee) )
         };
 
-        typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
+        typedef eosio::multi_index< N(arbfee), arbfee > arbfee_index;
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf) )
