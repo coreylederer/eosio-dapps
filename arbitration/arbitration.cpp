@@ -41,6 +41,26 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void deleteclaim(uint64_t claim_id, const account_name claimant) {
+            require_auth(claimant);
+            claim_index claims(_self, _self);
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
+            eosio_assert(claims_itr->claimant == claimant, "You are not the claimant on this claim.");
+            claims.erase(claims_itr);
+        }
+
+        //@abi action
+        void deletecase(uint64_t arbcase_id, const account_name arbitrator) {
+            require_auth(arbitrator);
+            arbcase_index arbcases(_self, _self);
+            auto arbcases_itr = arbcases.find(arbcase_id);
+            eosio_assert(arbcases_itr != arbcases.end(), "arbcase id not found.");
+            eosio_assert(arbcases_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
+            arbcases.erase(arbcases_itr);
+        }
+
+        //@abi action
         void postbond(const uint64_t claim_id, const asset& bond) {
             require_auth(_self);
             validate_asset(bond);
@@ -409,4 +429,4 @@ class arbitration : public eosio::contract {
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf) )
 
-// TODO: remove claim row
+// TODO: GUARDS on when a claim and case can be deleted
