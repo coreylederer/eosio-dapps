@@ -252,7 +252,7 @@ class arbitration : public eosio::contract {
         void setarbfee(const asset& fee){
             require_auth(_self);
             eosio_assert(fee.amount > 0, "Fee must be greater than zero.");
-            arbfee new_arbfee{0,fee};
+            arbfee new_arbfee{fee};
             arbfee_index current_arbfee(_self, _self);
             current_arbfee.set(new_arbfee, _self);
         }
@@ -390,7 +390,7 @@ class arbitration : public eosio::contract {
             EOSLIB_SERIALIZE( arbfee, (fee) )
         };
 
-        typedef eosio::multi_index< N(arbfee), arbfee > arbfee_index;
+        typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf) )
