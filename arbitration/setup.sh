@@ -13,7 +13,6 @@ cleos --wallet-url http://localhost:8899 create account eosio arbitration EOS6Kt
 cleos --wallet-url http://localhost:8899 create account eosio eosio.token EOS8i5AWoDuG2szDqHGpjWppuiSWzPqBTBSApgmvpgPPAv572ytT9 EOS8DXKH2PYSvJ3iu4mJdEjWaZjdKZWH18zFnQ6G3tRMm43nfAsnw
 
 #
-
 # pause for effect (let the chain update)#
 sleep 1
 
