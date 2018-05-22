@@ -310,7 +310,7 @@ class arbitration : public eosio::contract {
                 });
             } else {
                 participants.modify( participant_itr, 0, [&]( auto& participant ) {
-                    participant.as_claimant.push_back(id);
+                    participant.as_respondent.push_back(id);
                 });
             }
         }
