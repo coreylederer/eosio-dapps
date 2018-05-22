@@ -9,6 +9,7 @@
 #include <vector>
 
 using eosio::asset;
+using eosio::print;
 using std::vector;
 using std::string;
 using eosio::permission_level;
@@ -24,11 +25,13 @@ class arbitration : public eosio::contract {
             require_auth(claimant);
             validate_asset(fee);
             check_fee(fee);
-            send_eos(claimant, _self, fee, "Paying fee to submit claim.");
-  
+            //send_eos(claimant, _self, fee, "Paying fee to submit claim.");
+
+            uint64_t claim_id;
             claim_index claims(_self, _self);
             claims.emplace(claimant, [&](auto& claim) {
                 claim.id = claims.available_primary_key();
+                claim_id = claim.id;
                 claim.claimant = claimant;
                 claim.respondent = respondent;
                 claim.tx_id = tx_id;
@@ -36,6 +39,7 @@ class arbitration : public eosio::contract {
                 claim.fee = fee;
                 claim.fee_paid = true;
             });
+            print("Your claim id is ",claim_id,".");
         }
 
         //@abi action
@@ -79,7 +83,7 @@ class arbitration : public eosio::contract {
 
             validate_asset(bond);
             check_bond(claim_id, bond);
-            send_eos(claimant, _self, bond, "Fronting bond for case.");
+            //send_eos(claimant, _self, bond, "Fronting bond for case.");
 
             claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
@@ -219,9 +223,9 @@ class arbitration : public eosio::contract {
             auto total_amount = to_claimant.amount + to_respondent.amount + to_arbitrator.amount + to_arbitration_forum.amount;
             eosio_assert(total_amount <= arbcase_itr->bond.amount, "Attempting to disperse a bond amount that is greater than the fronted bond.");
 
-            if (to_claimant.amount > 0)     { send_eos(_self, arbcase_itr->claimant, to_claimant, "Dispersal of bond to claimant."); }
-            if (to_respondent.amount > 0)   { send_eos(_self, arbcase_itr->respondent, to_respondent, "Dispersal of bond to respondent."); }
-            if (to_arbitrator.amount > 0)   { send_eos(_self, arbcase_itr->arbitrator, to_arbitrator, "Dispersal of bond to arbitrator."); }
+            // if (to_claimant.amount > 0)     { send_eos(_self, arbcase_itr->claimant, to_claimant, "Dispersal of bond to claimant."); }
+            // if (to_respondent.amount > 0)   { send_eos(_self, arbcase_itr->respondent, to_respondent, "Dispersal of bond to respondent."); }
+            // if (to_arbitrator.amount > 0)   { send_eos(_self, arbcase_itr->arbitrator, to_arbitrator, "Dispersal of bond to arbitrator."); }
 
             arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
                 arbcase.bond_dispersed = true;
