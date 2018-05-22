@@ -102,9 +102,11 @@ class arbitration : public eosio::contract {
             auto ctoac = claims.get(claim_id); // claim to open as case
             eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
 
+            uint64_t case_id;
             arbcase_index arbcases(_self, _self);
             arbcases.emplace(_self, [&](auto& arbcase) {
                 arbcase.id              = arbcases.available_primary_key();
+                case_id                 = arbcase.id;
                 arbcase.claimant        = ctoac.claimant;
                 arbcase.respondent      = ctoac.respondent;
                 arbcase.fee             = ctoac.fee;
@@ -115,6 +117,7 @@ class arbitration : public eosio::contract {
                 arbcase.tx_id           = ctoac.tx_id;
             });
             
+            print("The claim id is ",case_id,".");
             log_claimant(claim_id, ctoac.claimant);
             log_respondent(claim_id, ctoac.respondent);
         }
@@ -126,6 +129,7 @@ class arbitration : public eosio::contract {
             claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
+            eosio_assert(claims_itr->claimant == claimant, "You are not the claimant in this claim.");
 
             claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.claim_dropped = true;

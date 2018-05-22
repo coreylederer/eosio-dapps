@@ -78,7 +78,7 @@ cleos --wallet-url http://localhost:8899 push action arbitration deleteclaim '[0
 
 cleos --wallet-url http://localhost:8899 push action arbitration postbond '[1,"5.0000 EOS"]' -p arbitration
 
-cleos --wallet-url http://localhost:8899 push action arbitration postbond '[1,"5.0000 EOS"]' -p arbitration
+cleos --wallet-url http://localhost:8899 push action arbitration frontbond '[1,"alice","5.0000 EOS"]' -p alice
 
 cleos --wallet-url http://localhost:8899  set account permission alice active '{"threshold" : 1, "keys" : [], "accounts" : [{"permission":{"actor":"arbitration","permission":"active"},"weight":1}]}' owner
 
@@ -86,5 +86,6 @@ cleos --wallet-url http://localhost:8899 set account permission alice active '{"
 
 cleos --wallet-url http://localhost:8899 set account permission alice active '{"threshold": 1,"keys": [{"key": "EOS7qdCVGfEBt3MonTYiGKQqnrYciLsFfaRWTyLCu5VtsH339tBZp","weight": 1}],"accounts": []}' owner -p alice
 
+cleos --wallet-url http://localhost:8899 push action arbitration assignarb '[0,"doug"]' -p arbitration
 
-
+cleos --wallet-url http://localhost:8899 push action arbitration opencase '[1]' -p arbitration
