@@ -421,6 +421,16 @@ class arbitration : public eosio::contract {
         };
 
         typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
+
+        typedef uint64_t id;
+        typedef eosio::singleton<N(deep), id>  id_index;
+
+        id nextid(){
+            id_index lastid(_self, _self);
+            id lid = lastid.exists() ? lastid.get()+1 : 0;
+            lastid.set(lid,_self);
+            return lid;
+        }
 };
 
 EOSIO_ABI( arbitration, (submitclaim)(deleteclaim)(deletecase)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
