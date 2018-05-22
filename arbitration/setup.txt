@@ -70,13 +70,19 @@ transaction id
 sha256 of document
 913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c
 
-cleos -v --wallet-url http://localhost:8899 push action arbitration submitclaim '["alice","bob","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p alice
+cleos --wallet-url http://localhost:8899 push action arbitration submitclaim '["alice","bob","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p alice
+
+cleos --wallet-url http://localhost:8899 push action arbitration submitclaim '["alice","sam","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p alice
+
+cleos --wallet-url http://localhost:8899 push action arbitration submitclaim '["sam","alice","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p sam
+
+cleos --wallet-url http://localhost:8899 push action arbitration submitclaim '["bob","sam","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p bob
 
 cleos --wallet-url http://localhost:8899 push action arbitration setarbfee '["2.0000 EOS"]' -p arbitration
 
 cleos --wallet-url http://localhost:8899 push action arbitration deleteclaim '[0,"alice"]' -p alice
 
-cleos --wallet-url http://localhost:8899 push action arbitration postbond '[1,"5.0000 EOS"]' -p arbitration
+cleos --wallet-url http://localhost:8899 push action arbitration postbond '[0,"alice","5.0000 EOS"]' -p arbitration
 
 cleos --wallet-url http://localhost:8899 push action arbitration frontbond '[1,"alice","5.0000 EOS"]' -p alice
 
@@ -88,4 +94,4 @@ cleos --wallet-url http://localhost:8899 set account permission alice active '{"
 
 cleos --wallet-url http://localhost:8899 push action arbitration assignarb '[0,"doug"]' -p arbitration
 
-cleos --wallet-url http://localhost:8899 push action arbitration opencase '[1]' -p arbitration
+cleos --wallet-url http://localhost:8899 push action arbitration opencase '[0,"alice"]' -p arbitration
