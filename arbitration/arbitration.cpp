@@ -12,6 +12,8 @@ using eosio::asset;
 using eosio::print;
 using std::vector;
 using std::string;
+using eosio::indexed_by;
+using eosio::const_mem_fun;
 using eosio::permission_level;
 using eosio::action;
 
@@ -28,9 +30,9 @@ class arbitration : public eosio::contract {
             //send_eos(claimant, _self, fee, "Paying fee to submit claim.");
 
             uint64_t claim_id;
-            claim_index claims(_self, _self);
+            claim_index claims(_self, claimant);
             claims.emplace(claimant, [&](auto& claim) {
-                claim.id = claims.available_primary_key();
+                claim.id = next_claim_id();
                 claim_id = claim.id;
                 claim.claimant = claimant;
                 claim.respondent = respondent;
@@ -41,11 +43,12 @@ class arbitration : public eosio::contract {
             });
             print("Your claim id is ",claim_id,".");
         }
-
+        
+        // TODO: put guards on when a claimant can delete a claim
         //@abi action
         void deleteclaim(uint64_t claim_id, const account_name claimant) {
             require_auth(claimant);
-            claim_index claims(_self, _self);
+            claim_index claims(_self, claimant);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant on this claim.");
@@ -53,22 +56,22 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void deletecase(uint64_t arbcase_id, const account_name arbitrator) {
+        void deletecase(uint64_t arbcase_id, const account_name claimant, const account_name arbitrator) {
             require_auth(arbitrator);
-            arbcase_index arbcases(_self, _self);
+            arbcase_index arbcases(_self, claimant);
             auto arbcases_itr = arbcases.find(arbcase_id);
-            eosio_assert(arbcases_itr != arbcases.end(), "arbcase id not found.");
+            eosio_assert(arbcases_itr != arbcases.end(), "Case id not found.");
             eosio_assert(arbcases_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
             arbcases.erase(arbcases_itr);
         }
 
         //@abi action
-        void postbond(const uint64_t claim_id, const asset& bond) {
+        void postbond(const uint64_t claim_id, const account_name claimant, const asset& bond) {
             require_auth(_self);
             validate_asset(bond);
             eosio_assert(bond.amount > 0, "Bond must be greater than zero.");
 
-            claim_index claims(_self, _self);
+            claim_index claims(_self, claimant);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
 
@@ -82,25 +85,30 @@ class arbitration : public eosio::contract {
             require_auth(claimant);
 
             validate_asset(bond);
-            check_bond(claim_id, bond);
-            //send_eos(claimant, _self, bond, "Fronting bond for case.");
-
-            claim_index claims(_self, _self);
+            check_bond(claim_id, claimant, bond);
+            
+            claim_index claims(_self, claimant);
             auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr->claimant == claimant, "You are not the claimant in this claim.");
             eosio_assert(claims_itr != claims.end(), "Filing id not found.");
-
+            
+            //send_eos(claimant, _self, bond, "Fronting bond for case.");
             claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.bond_fronted = true;
             });
         }
 
         //@abi action
-        void opencase(const uint64_t claim_id) {
+        void opencase(const uint64_t claim_id, const account_name claimant) {
             require_auth(_self);
 
-            claim_index claims(_self, _self);
+            claim_index claims(_self, claimant);
             auto ctoac = claims.get(claim_id); // claim to open as case
             eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
+
+            arbcase_index arbcases(_self, claimant);
+            auto arbcase_itr = arbcases.find(case_id);
+            eosio_assert(arbcase_itr != arbcases.end(), "Filing id not found.");
 
             uint64_t case_id;
             arbcase_index arbcases(_self, _self);
@@ -321,8 +329,8 @@ class arbitration : public eosio::contract {
             eosio_assert(fee.amount == arbfees.get().fee.amount, "Fee amount is not adequate.");
         }
 
-        void check_bond(const uint64_t claim_id, const asset& bond){
-            claim_index claims(_self, _self);
+        void check_bond(const uint64_t claim_id, const account_name claimant, const asset& bond){
+            claim_index claims(_self, claimant);
             eosio_assert(bond.amount == claims.get(claim_id).bond.amount, "Bond amount is not adequate.");
         }
 
@@ -353,15 +361,20 @@ class arbitration : public eosio::contract {
             asset bond;
             bool bond_fronted = false;
             checksum256 documents;
-            string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
+            string tx_id;
 
             uint64_t primary_key() const { return id; }
+            account_name by_claimant() const { return claimant; }
+            account_name by_respondent() const { return respondent; }
 
             EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(claim_dropped)(is_rejected)
                             (rejection_reason)(fee)(fee_paid)(bond)(bond_fronted)(documents)
                             (tx_id) )
         };
-        typedef eosio::multi_index< N(claim), claim > claim_index;
+        typedef eosio::multi_index< N(claim), claim,
+            indexed_by< N(byClaimant), const_mem_fun< claim, account_name, &claim::by_claimant> >,
+            indexed_by< N(byRespondent), const_mem_fun< claim, account_name, &claim::by_respondent> >
+        > claim_index;
 
         //@abi table arbcase i64
         struct arbcase {
@@ -386,7 +399,7 @@ class arbitration : public eosio::contract {
             bool requested_remedy = false;
             bool remedy_fulfilled = false;
             checksum256 documents;
-            string tx_id = "0000000000000000000000000000000000000000000000000000000000000000";
+            string tx_id;
 
             uint64_t primary_key() const { return id; }
 
@@ -423,13 +436,21 @@ class arbitration : public eosio::contract {
         typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 
         typedef uint64_t id;
-        typedef eosio::singleton<N(deep), id>  id_index;
+        typedef eosio::singleton<N(deep), id>  claim_id_index;
+        typedef eosio::singleton<N(deep), id>  case_id_index;
 
-        id nextid(){
-            id_index lastid(_self, _self);
-            id lid = lastid.exists() ? lastid.get()+1 : 0;
-            lastid.set(lid,_self);
-            return lid;
+        id next_claim_id(){
+            claim_id_index last_claim_id(_self, _self);
+            id lcid = last_claim_id.exists() ? last_claim_id.get() + 1 : 0;
+            last_claim_id.set(lcid,_self);
+            return lcid;
+        }
+
+        id next_case_id(){
+            case_id_index last_case_id(_self, _self);
+            id lcid = last_case_id.exists() ? last_case_id.get() + 1 : 0;
+            last_case_id.set(lcid,_self);
+            return lcid;
         }
 };
 
