@@ -1234,10 +1234,6 @@
    (get_local $0)
    (get_local $5)
   )
-  (i64.store offset=88
-   (get_local $6)
-   (i64.const 0)
-  )
   (i32.store
    (i32.add
     (get_local $6)
@@ -3510,8 +3506,8 @@
  (func $_ZN11arbitration8opencaseEy (type $FUNCSIG$vij) (param $0 i32) (param $1 i64)
   (local $2 i32)
   (local $3 i32)
-  (local $4 i32)
-  (local $5 i64)
+  (local $4 i64)
+  (local $5 i32)
   (local $6 i32)
   (local $7 i32)
   (i32.store offset=4
@@ -3550,7 +3546,7 @@
   )
   (i64.store offset=248
    (get_local $7)
-   (tee_local $5
+   (tee_local $4
     (i64.load
      (get_local $0)
     )
@@ -3558,7 +3554,7 @@
   )
   (i64.store offset=256
    (get_local $7)
-   (get_local $5)
+   (get_local $4)
   )
   (i32.store16 offset=284
    (get_local $7)
@@ -3585,7 +3581,7 @@
   )
   (drop
    (call $_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC2ERKS5_
-    (tee_local $4
+    (tee_local $5
      (i32.add
       (i32.add
        (get_local $7)
@@ -3620,7 +3616,7 @@
   )
   (i64.store offset=32
    (get_local $7)
-   (tee_local $5
+   (tee_local $1
     (i64.load
      (get_local $0)
     )
@@ -3628,7 +3624,7 @@
   )
   (i64.store offset=40
    (get_local $7)
-   (get_local $5)
+   (get_local $1)
   )
   (i32.store offset=16
    (get_local $7)
@@ -3657,7 +3653,7 @@
     (get_local $7)
     (i32.const 32)
    )
-   (get_local $5)
+   (get_local $1)
    (i32.add
     (get_local $7)
     (i32.const 16)
@@ -3676,14 +3672,18 @@
   )
   (call $_ZN11arbitration12log_claimantEyy
    (get_local $0)
-   (get_local $1)
+   (i64.load offset=72
+    (get_local $7)
+   )
    (i64.load offset=88
     (get_local $7)
    )
   )
   (call $_ZN11arbitration14log_respondentEyy
    (get_local $0)
-   (get_local $1)
+   (i64.load offset=72
+    (get_local $7)
+   )
    (i64.load offset=96
     (get_local $7)
    )
@@ -3794,7 +3794,7 @@
     (i32.eqz
      (i32.and
       (i32.load8_u
-       (get_local $4)
+       (get_local $5)
       )
       (i32.const 1)
      )
@@ -3825,7 +3825,7 @@
       (i32.eq
        (tee_local $0
         (i32.load
-         (tee_local $4
+         (tee_local $5
           (i32.add
            (get_local $7)
            (i32.const 276)
@@ -3903,7 +3903,7 @@
     )
    )
    (i32.store
-    (get_local $4)
+    (get_local $5)
     (get_local $2)
    )
    (call $_ZdlPv
