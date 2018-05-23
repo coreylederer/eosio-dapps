@@ -8,7 +8,7 @@ cleos --wallet-url http://localhost:8899 wallet
 
 Save password to use in the future to unlock this wallet.
 Without password imported keys will not be retrievable.
-"PW5J7n1mCKJ1GayZYUFT9g8BHzjiHnv19LavucCsvnhCF6uNHC1JY"
+"PW5KiCYvQa4BxniQyPBeSNKArT29j6pxVwd8RTKG35NT27SR22Mw8"
 
 Alice - user
 owner
@@ -71,6 +71,12 @@ sha256 of document
 913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c
 
 cleos -v --wallet-url http://localhost:8899 push action arbitration submitclaim '["alice","bob","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p alice
+
+cleos -v --wallet-url http://localhost:8899 push action arbitration submitclaim '["alice","sam","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p alice
+
+cleos -v --wallet-url http://localhost:8899 push action arbitration submitclaim '["bob","sam","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p bob
+
+cleos -v --wallet-url http://localhost:8899 push action arbitration submitclaim '["sam","alice","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","2.0000 EOS"]' -p sam
 
 cleos --wallet-url http://localhost:8899 push action arbitration setarbfee '["2.0000 EOS"]' -p arbitration
 

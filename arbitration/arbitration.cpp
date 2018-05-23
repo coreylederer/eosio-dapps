@@ -26,7 +26,7 @@ class arbitration : public eosio::contract {
                          const string& tx_id, const checksum256& docs, const asset& fee) {
             require_auth(claimant);
             validate_asset(fee);
-            check_fee(fee);
+            //check_fee(fee);
             //send_eos(claimant, _self, fee, "Paying fee to submit claim.");
 
             uint64_t claim_id;
@@ -48,7 +48,7 @@ class arbitration : public eosio::contract {
         //@abi action
         void deleteclaim(uint64_t claim_id, const account_name claimant) {
             require_auth(claimant);
-            claim_index claims(_self, claimant);
+            claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant on this claim.");
@@ -57,12 +57,12 @@ class arbitration : public eosio::contract {
 
         // TODO: put guards on when an arbitrator can delete a case
         //@abi action
-        void deletecase(uint64_t arbcase_id, const account_name claimant, const account_name arbitrator) {
-            require_auth(arbitrator);
-            arbcase_index arbcases(_self, claimant);
+        void deletecase(uint64_t arbcase_id, const account_name arbitrator) {
+            //require_auth(arbitrator);
+            arbcase_index arbcases(_self, _self);
             auto arbcases_itr = arbcases.find(arbcase_id);
             eosio_assert(arbcases_itr != arbcases.end(), "Case id not found.");
-            eosio_assert(arbcases_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
+            //eosio_assert(arbcases_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
             arbcases.erase(arbcases_itr);
         }
 
@@ -99,7 +99,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void opencase(const uint64_t claim_id, const account_name claimant) {
+        void opencase(const uint64_t claim_id) {
             require_auth(_self);
 
             claim_index claims(_self, _self);
@@ -247,7 +247,7 @@ class arbitration : public eosio::contract {
         // remedy requested
         //@abi action
         void remedyr(const uint64_t case_id, const account_name arbitrator, const checksum256& remedy) {
-            require_auth(arbitrator);
+            //require_auth(arbitrator);
 
             arbcase_index arbcases(_self, _self);
 
@@ -295,11 +295,11 @@ class arbitration : public eosio::contract {
             if (caselog_itr == caselogs.end()){
                 caselogs.emplace(_self, [&](auto& caselog) {
                     caselog.id = claimant;
-                    caselog.as_claimant.push_back(case_id);
+                    caselog.claimant_on_case_id.push_back(case_id);
                 });
             } else {
                 caselogs.modify( caselog_itr, 0, [&]( auto& caselog ) {
-                    caselog.as_claimant.push_back(case_id);
+                    caselog.claimant_on_case_id.push_back(case_id);
                 });
             }
         }
@@ -310,11 +310,11 @@ class arbitration : public eosio::contract {
             if (caselog_itr == caselogs.end()){
                 caselogs.emplace(_self, [&](auto& caselog) {
                     caselog.id = respondent;
-                    caselog.as_respondent.push_back(case_id);
+                    caselog.respondent_on_case_id.push_back(case_id);
                 });
             } else {
                 caselogs.modify( caselog_itr, 0, [&]( auto& caselog ) {
-                    caselog.as_respondent.push_back(case_id);
+                    caselog.respondent_on_case_id.push_back(case_id);
                 });
             }
         }
@@ -410,12 +410,12 @@ class arbitration : public eosio::contract {
         //@abi table caselog i64
         struct caselog {
             account_name id;
-            vector<uint64_t> as_claimant;
-            vector<uint64_t> as_respondent;
+            vector<uint64_t> claimant_on_case_id;
+            vector<uint64_t> respondent_on_case_id;
 
             account_name primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( caselog, (id)(as_claimant)(as_respondent) )
+            EOSLIB_SERIALIZE( caselog, (id)(claimant_on_case_id)(respondent_on_case_id) )
         };
         typedef eosio::multi_index< N(caselog), caselog > caselog_index;
 
@@ -432,8 +432,8 @@ class arbitration : public eosio::contract {
         typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
 
         typedef uint64_t id;
-        typedef eosio::singleton<N(deep), id>  claim_id_index;
-        typedef eosio::singleton<N(deep), id>  case_id_index;
+        typedef eosio::singleton<N(claimid), id>  claim_id_index;
+        typedef eosio::singleton<N(caseid), id>  case_id_index;
 
         id next_claim_id(){
             claim_id_index last_claim_id(_self, _self);
