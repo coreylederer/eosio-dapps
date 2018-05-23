@@ -30,7 +30,7 @@ class arbitration : public eosio::contract {
             //send_eos(claimant, _self, fee, "Paying fee to submit claim.");
 
             uint64_t claim_id;
-            claim_index claims(_self, claimant);
+            claim_index claims(_self, _self);
             claims.emplace(claimant, [&](auto& claim) {
                 claim.id = next_claim_id();
                 claim_id = claim.id;
@@ -55,6 +55,7 @@ class arbitration : public eosio::contract {
             claims.erase(claims_itr);
         }
 
+        // TODO: put guards on when an arbitrator can delete a case
         //@abi action
         void deletecase(uint64_t arbcase_id, const account_name claimant, const account_name arbitrator) {
             require_auth(arbitrator);
@@ -90,7 +91,6 @@ class arbitration : public eosio::contract {
             claim_index claims(_self, claimant);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant in this claim.");
-            eosio_assert(claims_itr != claims.end(), "Filing id not found.");
             
             //send_eos(claimant, _self, bond, "Fronting bond for case.");
             claims.modify( claims_itr, 0, [&]( auto& claim ) {
@@ -102,18 +102,14 @@ class arbitration : public eosio::contract {
         void opencase(const uint64_t claim_id, const account_name claimant) {
             require_auth(_self);
 
-            claim_index claims(_self, claimant);
+            claim_index claims(_self, _self);
             auto ctoac = claims.get(claim_id); // claim to open as case
-            eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
-
-            arbcase_index arbcases(_self, claimant);
-            auto arbcase_itr = arbcases.find(case_id);
-            eosio_assert(arbcase_itr != arbcases.end(), "Filing id not found.");
+            //eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
 
             uint64_t case_id;
             arbcase_index arbcases(_self, _self);
             arbcases.emplace(_self, [&](auto& arbcase) {
-                arbcase.id              = arbcases.available_primary_key();
+                arbcase.id              = next_case_id();
                 case_id                 = arbcase.id;
                 arbcase.claimant        = ctoac.claimant;
                 arbcase.respondent      = ctoac.respondent;
@@ -125,7 +121,7 @@ class arbitration : public eosio::contract {
                 arbcase.tx_id           = ctoac.tx_id;
             });
             
-            print("The claim id is ",case_id,".");
+            print("The case id is ",case_id,".");
             log_claimant(claim_id, ctoac.claimant);
             log_respondent(claim_id, ctoac.respondent);
         }
@@ -293,32 +289,32 @@ class arbitration : public eosio::contract {
             arbfees.set(new_arbfee, _self);
         }
 
-        void log_claimant(const uint64_t id, const account_name claimant){
-            participant_index participants(_self, _self);
-            auto participant_itr = participants.find(claimant);
-            if (participant_itr == participants.end()){
-                participants.emplace(_self, [&](auto& participant) {
-                    participant.id = claimant;
-                    participant.as_claimant.push_back(id);
+        void log_claimant(const uint64_t case_id, const account_name claimant){
+            caselog_index caselogs(_self, claimant);
+            auto caselog_itr = caselogs.find(claimant);
+            if (caselog_itr == caselogs.end()){
+                caselogs.emplace(_self, [&](auto& caselog) {
+                    caselog.id = claimant;
+                    caselog.as_claimant.push_back(case_id);
                 });
             } else {
-                participants.modify( participant_itr, 0, [&]( auto& participant ) {
-                    participant.as_claimant.push_back(id);
+                caselogs.modify( caselog_itr, 0, [&]( auto& caselog ) {
+                    caselog.as_claimant.push_back(case_id);
                 });
             }
         }
 
-        void log_respondent(const uint64_t id, const account_name respondent){
-            participant_index participants(_self, _self);
-            auto participant_itr = participants.find(respondent);
-            if (participant_itr == participants.end()){
-                participants.emplace(_self, [&](auto& participant) {
-                    participant.id = respondent;
-                    participant.as_respondent.push_back(id);
+        void log_respondent(const uint64_t case_id, const account_name respondent){
+            caselog_index caselogs(_self, respondent);
+            auto caselog_itr = caselogs.find(respondent);
+            if (caselog_itr == caselogs.end()){
+                caselogs.emplace(_self, [&](auto& caselog) {
+                    caselog.id = respondent;
+                    caselog.as_respondent.push_back(case_id);
                 });
             } else {
-                participants.modify( participant_itr, 0, [&]( auto& participant ) {
-                    participant.as_respondent.push_back(id);
+                caselogs.modify( caselog_itr, 0, [&]( auto& caselog ) {
+                    caselog.as_respondent.push_back(case_id);
                 });
             }
         }
@@ -411,17 +407,17 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
-        //@abi table participant i64
-        struct participant {
+        //@abi table caselog i64
+        struct caselog {
             account_name id;
             vector<uint64_t> as_claimant;
             vector<uint64_t> as_respondent;
 
             account_name primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( participant, (id)(as_claimant)(as_respondent) )
+            EOSLIB_SERIALIZE( caselog, (id)(as_claimant)(as_respondent) )
         };
-        typedef eosio::multi_index< N(participant), participant > participant_index;
+        typedef eosio::multi_index< N(caselog), caselog > caselog_index;
 
         //@abi table arbfee i64
         struct arbfee {
