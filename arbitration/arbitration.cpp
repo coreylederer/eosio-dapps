@@ -44,8 +44,9 @@ class arbitration : public eosio::contract {
             print("Your claim id is ",claim_id,".");
         }
 
+        // request to join case
         //@abi action
-        void joincase(uint64_t case_id, const account_name claimant, const account_name respondent,
+        void rtjcase(uint64_t case_id, const account_name claimant, const account_name respondent,
                       const string& tx_id, const checksum256& docs, const asset& fee) {
             require_auth(claimant);
             validate_asset(fee);
@@ -68,7 +69,6 @@ class arbitration : public eosio::contract {
             print("Your request to join case (rtjc) id is ",rtjc_id,".");
         }
         
-        // TODO: put guards on when a claimant can delete a claim
         //@abi action
         void deleteclaim(uint64_t claim_id, const account_name claimant) {
             require_auth(claimant);
@@ -80,7 +80,17 @@ class arbitration : public eosio::contract {
             claims.erase(claims_itr);
         }
 
-        // TODO: put guards on when an arbitrator can delete a case
+        //@abi action
+        void deletertjc(uint64_t rtjc_id, const account_name claimant) {
+            require_auth(claimant);
+            rtjc_index rtjcs(_self, _self);
+            auto rtjcs_itr = rtjcs.find(rtjc_id);
+            eosio_assert(rtjcs_itr != rtjcs.end(), "Claim id not found.");
+            eosio_assert(rtjcs_itr->claimant == claimant, "You are not the claimant on this claim.");
+            eosio_assert(rtjcs_itr->can_delete,"RTJC cannot be deleted.");
+            rtjcs.erase(rtjcs_itr);
+        }
+
         //@abi action
         void deletecase(uint64_t arbcase_id, const account_name arbitrator) {
             require_auth(arbitrator);
@@ -98,7 +108,7 @@ class arbitration : public eosio::contract {
             validate_asset(bond);
             eosio_assert(bond.amount > 0, "Bond must be greater than zero.");
 
-            claim_index claims(_self, claimant);
+            claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
 
@@ -110,19 +120,19 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void pstrtjcbnd(const uint64_t claim_id, const account_name claimant, const asset& bond) {
+        void pstrtjcbnd(const uint64_t rtjc_id, const account_name claimant, const asset& bond) {
             require_auth(_self);
             validate_asset(bond);
             eosio_assert(bond.amount > 0, "Bond must be greater than zero.");
 
-            claim_index claims(_self, claimant);
-            auto claims_itr = claims.find(claim_id);
-            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
+            rtjc_index rtjcs(_self, _self);
+            auto rtjcs_itr = rtjcs.find(rtjc_id);
+            eosio_assert(rtjcs_itr != rtjcs.end(), "rtjc id not found.");
 
-            eosio_assert(!claims_itr->claim_dropped,"Claim has been dropped. Cannot post bond.");
+            eosio_assert(!rtjcs_itr->rtjc_dropped,"rtjc has been dropped. Cannot post bond.");
 
-            claims.modify( claims_itr, 0, [&]( auto& claim ) {
-                claim.bond = bond;
+            rtjcs.modify( rtjcs_itr, 0, [&]( auto& rtjc ) {
+                rtjc.bond = bond;
             });
         }
 
@@ -131,9 +141,9 @@ class arbitration : public eosio::contract {
             require_auth(claimant);
 
             validate_asset(bond);
-            check_bond(claim_id, claimant, bond);
+            check_bond(claim_id, bond);
             
-            claim_index claims(_self, claimant);
+            claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant in this claim.");
             
@@ -144,19 +154,19 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void frntrtjcbnd(const uint64_t claim_id, const account_name claimant, const asset& bond) {
+        void frntrtjcbnd(const uint64_t rtjc_id, const account_name claimant, const asset& bond) {
             require_auth(claimant);
 
             validate_asset(bond);
-            check_bond(claim_id, claimant, bond);
+            check_bond(rtjc_id, bond);
             
-            claim_index claims(_self, claimant);
-            auto claims_itr = claims.find(claim_id);
-            eosio_assert(claims_itr->claimant == claimant, "You are not the claimant in this claim.");
+            rtjc_index rtjcs(_self, _self);
+            auto rtjcs_itr = rtjcs.find(rtjc_id);
+            eosio_assert(rtjcs_itr->claimant == claimant, "You are not the claimant in this rtjc.");
             
-            //send_eos(claimant, _self, bond, "Fronting bond for case.");
-            claims.modify( claims_itr, 0, [&]( auto& claim ) {
-                claim.bond_fronted = true;
+            //send_eos(rtjcant, _self, bond, "Fronting bond for case.");
+            rtjcs.modify( rtjcs_itr, 0, [&]( auto& rtjc ) {
+                rtjc.bond_fronted = true;
             });
         }
 
@@ -189,11 +199,11 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void addtocase(const uint64_t case_id, const account_name claimant) {
+        void addtocase(const uint64_t case_id, const uint64_t rtjc_id, const account_name claimant) {
             require_auth(_self);
 
             claim_index claims(_self, _self);
-            auto ctoac = claims.get(claim_id); // claim to open as case
+            auto ctoac = claims.get(case_id); // claim to open as case
             //eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
 
             uint64_t case_id;
@@ -415,9 +425,11 @@ class arbitration : public eosio::contract {
             eosio_assert(fee.amount == arbfees.get().fee.amount, "Fee amount is not adequate.");
         }
 
-        void check_bond(const uint64_t claim_id, const account_name claimant, const asset& bond){
-            claim_index claims(_self, claimant);
-            eosio_assert(bond.amount == claims.get(claim_id).bond.amount, "Bond amount is not adequate.");
+        void check_bond(const uint64_t claim_id, const asset& bond){
+            claim_index claims(_self, _self);
+            int64_t bond_amount = claims.get(claim_id).bond.amount;
+            eosio_assert(bond_amount > 0, "Arbitration forum needs to post the bond amount.");
+            eosio_assert(bond.amount == bond_amount, "Bond amount is not adequate.");
         }
 
         void validate_asset(const asset& quantity){
@@ -470,7 +482,7 @@ class arbitration : public eosio::contract {
             uint64_t case_id;
             account_name claimant;
             account_name respondent;
-            bool rtj_dropped = false;
+            bool rtjc_dropped = false;
             bool can_delete = false;
             bool is_rejected = false;
             checksum256 rejection_reason;
@@ -489,6 +501,7 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(rtjc), rtjc > rtjc_index;
 
+        // TODO: a way for a claimant to drop out and the case continue on
         //@abi table arbcase i64
         struct arbcase {
             uint64_t id;
@@ -577,6 +590,6 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(joincase)(deleteclaim)(deletecase)(postbond)(pstrtjcbnd)(frontbond)(frntrtjcbnd)(opencase)(addtocase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
+EOSIO_ABI( arbitration, (submitclaim)(rtjc)(deleteclaim)(deletecase)(postbond)(pstrtjcbnd)(frontbond)(frntrtjcbnd)(opencase)(addtocase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
 
 // TODO: GUARDS on when a claim and case can be deleted
