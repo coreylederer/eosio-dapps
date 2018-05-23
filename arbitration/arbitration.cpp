@@ -43,6 +43,30 @@ class arbitration : public eosio::contract {
             });
             print("Your claim id is ",claim_id,".");
         }
+
+        //@abi action
+        void joincase(uint64_t case_id, const account_name claimant, const account_name respondent,
+                      const string& tx_id, const checksum256& docs, const asset& fee) {
+            require_auth(claimant);
+            validate_asset(fee);
+            //check_fee(fee);
+            //send_eos(claimant, _self, fee, "Paying fee to request to join a case.");
+
+            uint64_t rtjc_id;
+            rtjc_index rtjcs(_self, _self);
+            rtjcs.emplace(claimant, [&](auto& rtjc) {
+                rtjc.id = next_rtjc_id();
+                rtjc_id = rtjc.id;
+                rtjc.case_id = case_id;
+                rtjc.claimant = claimant;
+                rtjc.respondent = respondent;
+                rtjc.tx_id = tx_id;
+                rtjc.documents = docs;
+                rtjc.fee = fee;
+                rtjc.fee_paid = true;
+            });
+            print("Your request to join case (rtjc) id is ",rtjc_id,".");
+        }
         
         // TODO: put guards on when a claimant can delete a claim
         //@abi action
@@ -52,17 +76,19 @@ class arbitration : public eosio::contract {
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant on this claim.");
+            eosio_assert(claims_itr->can_delete,"Claim cannot be deleted.");
             claims.erase(claims_itr);
         }
 
         // TODO: put guards on when an arbitrator can delete a case
         //@abi action
         void deletecase(uint64_t arbcase_id, const account_name arbitrator) {
-            //require_auth(arbitrator);
+            require_auth(arbitrator);
             arbcase_index arbcases(_self, _self);
             auto arbcases_itr = arbcases.find(arbcase_id);
             eosio_assert(arbcases_itr != arbcases.end(), "Case id not found.");
             //eosio_assert(arbcases_itr->arbitrator == arbitrator, "You are not the arbitrator assigned to this case.");
+            eosio_assert(arbcases_itr->can_delete,"Case cannot be deleted.");
             arbcases.erase(arbcases_itr);
         }
 
@@ -75,6 +101,25 @@ class arbitration : public eosio::contract {
             claim_index claims(_self, claimant);
             auto claims_itr = claims.find(claim_id);
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
+
+            eosio_assert(!claims_itr->claim_dropped,"Claim has been dropped. Cannot post bond.");
+
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
+                claim.bond = bond;
+            });
+        }
+
+        //@abi action
+        void pstrtjcbnd(const uint64_t claim_id, const account_name claimant, const asset& bond) {
+            require_auth(_self);
+            validate_asset(bond);
+            eosio_assert(bond.amount > 0, "Bond must be greater than zero.");
+
+            claim_index claims(_self, claimant);
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
+
+            eosio_assert(!claims_itr->claim_dropped,"Claim has been dropped. Cannot post bond.");
 
             claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.bond = bond;
@@ -99,7 +144,52 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void frntrtjcbnd(const uint64_t claim_id, const account_name claimant, const asset& bond) {
+            require_auth(claimant);
+
+            validate_asset(bond);
+            check_bond(claim_id, claimant, bond);
+            
+            claim_index claims(_self, claimant);
+            auto claims_itr = claims.find(claim_id);
+            eosio_assert(claims_itr->claimant == claimant, "You are not the claimant in this claim.");
+            
+            //send_eos(claimant, _self, bond, "Fronting bond for case.");
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
+                claim.bond_fronted = true;
+            });
+        }
+
+        //@abi action
         void opencase(const uint64_t claim_id) {
+            require_auth(_self);
+
+            claim_index claims(_self, _self);
+            auto ctoac = claims.get(claim_id); // claim to open as case
+            //eosio_assert(ctoac.bond_fronted, "Bond has not been fronted, cannot open case.");
+
+            uint64_t case_id;
+            arbcase_index arbcases(_self, _self);
+            arbcases.emplace(_self, [&](auto& arbcase) {
+                arbcase.id              = next_case_id();
+                case_id                 = arbcase.id;
+                arbcase.claimant        = ctoac.claimant;
+                arbcase.respondent      = ctoac.respondent;
+                arbcase.fee             = ctoac.fee;
+                arbcase.fee_paid        = ctoac.fee_paid;
+                arbcase.bond            = ctoac.bond;
+                arbcase.bond_fronted    = ctoac.bond_fronted;
+                arbcase.documents       = ctoac.documents;
+                arbcase.tx_id           = ctoac.tx_id;
+            });
+            
+            print("The case id is ",case_id,".");
+            log_claimant(case_id, ctoac.claimant);
+            log_respondent(case_id, ctoac.respondent);
+        }
+
+        //@abi action
+        void addtocase(const uint64_t case_id, const account_name claimant) {
             require_auth(_self);
 
             claim_index claims(_self, _self);
@@ -350,6 +440,7 @@ class arbitration : public eosio::contract {
             account_name claimant;
             account_name respondent;
             bool claim_dropped = false;
+            bool can_delete = false;
             bool is_rejected = false;
             checksum256 rejection_reason;
             asset fee;
@@ -364,21 +455,49 @@ class arbitration : public eosio::contract {
             account_name by_respondent() const { return respondent; }
 
             EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(claim_dropped)(is_rejected)
-                            (rejection_reason)(fee)(fee_paid)(bond)(bond_fronted)(documents)
-                            (tx_id) )
+                            (rejection_reason)(fee)(fee_paid)(bond)(bond_fronted)
+                            (documents)(tx_id) )
         };
         typedef eosio::multi_index< N(claim), claim,
             indexed_by< N(byClaimant), const_mem_fun< claim, account_name, &claim::by_claimant> >,
             indexed_by< N(byRespondent), const_mem_fun< claim, account_name, &claim::by_respondent> >
         > claim_index;
 
+        // request to join case
+        //@abi table rtjc i64
+        struct rtjc {
+            uint64_t id;
+            uint64_t case_id;
+            account_name claimant;
+            account_name respondent;
+            bool rtj_dropped = false;
+            bool can_delete = false;
+            bool is_rejected = false;
+            checksum256 rejection_reason;
+            asset fee;
+            bool fee_paid = false;
+            asset bond;
+            bool bond_fronted = false;
+            checksum256 documents;
+            string tx_id;
+
+            uint64_t primary_key() const { return id; }
+
+            EOSLIB_SERIALIZE( rtjc, (id)(claimant)(respondent)(claim_dropped)(is_rejected)
+                            (rejection_reason)(fee)(fee_paid)(bond)(bond_fronted)
+                            (documents)(tx_id) )
+        };
+        typedef eosio::multi_index< N(rtjc), rtjc > rtjc_index;
+
         //@abi table arbcase i64
         struct arbcase {
             uint64_t id;
             account_name claimant;
+            vector<account_name> claimants;
             account_name respondent;
             account_name arbitrator;
             bool case_dropped = false;
+            bool can_delete = false;
             bool is_resolved = false;
             asset fee;
             bool fee_paid = false;
@@ -434,6 +553,7 @@ class arbitration : public eosio::contract {
         typedef uint64_t id;
         typedef eosio::singleton<N(claimid), id>  claim_id_index;
         typedef eosio::singleton<N(caseid), id>  case_id_index;
+        typedef eosio::singleton<N(caseid), id>  rtjc_id_index;
 
         id next_claim_id(){
             claim_id_index last_claim_id(_self, _self);
@@ -448,8 +568,15 @@ class arbitration : public eosio::contract {
             last_case_id.set(lcid,_self);
             return lcid;
         }
+
+        id next_rtjc_id(){
+            rtjc_id_index last_rtjc_id(_self, _self);
+            id lrtjcid = last_rtjc_id.exists() ? last_rtjc_id.get() + 1 : 0;
+            last_rtjc_id.set(lrtjcid,_self);
+            return lrtjcid;
+        }
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(deleteclaim)(deletecase)(postbond)(frontbond)(opencase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
+EOSIO_ABI( arbitration, (submitclaim)(joincase)(deleteclaim)(deletecase)(postbond)(pstrtjcbnd)(frontbond)(frntrtjcbnd)(opencase)(addtocase)(dropclaim)(dropcase)(rejectclaim)(submitruling)(closecase)(assignarb)(dispersebond)(remedyr)(remedyf)(setarbfee) )
 
 // TODO: GUARDS on when a claim and case can be deleted
