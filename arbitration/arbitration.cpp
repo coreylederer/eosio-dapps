@@ -122,8 +122,8 @@ class arbitration : public eosio::contract {
             });
             
             print("The case id is ",case_id,".");
-            log_claimant(claim_id, ctoac.claimant);
-            log_respondent(claim_id, ctoac.respondent);
+            log_claimant(case_id, ctoac.claimant);
+            log_respondent(case_id, ctoac.respondent);
         }
 
         //@abi action
