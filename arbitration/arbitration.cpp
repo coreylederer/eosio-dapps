@@ -120,6 +120,23 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void updatebond(const uint64_t case_id, const account_name claimant, const asset& bond, const checksum256& reason) {
+            require_auth(_self);
+            validate_asset(bond);
+            eosio_assert(bond.amount > 0, "Bond must be greater than zero.");
+
+            claim_index claims(_self, _self);
+            auto claims_itr = claims.find(case_id);
+            eosio_assert(claims_itr != claims.end(), "Claim id not found.");
+
+            eosio_assert(!claims_itr->claim_dropped,"Claim has been dropped. Cannot post bond.");
+
+            claims.modify( claims_itr, 0, [&]( auto& claim ) {
+                claim.bond = bond;
+            });
+        }
+
+        //@abi action
         void pstrtjcbnd(const uint64_t rtjc_id, const account_name claimant, const asset& bond) {
             require_auth(_self);
             validate_asset(bond);
@@ -241,6 +258,20 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void droprtjc(const uint64_t rtjc_id, const account_name claimant){
+            require_auth(claimant);
+
+            rtjc_index rtjcs(_self, _self);
+            auto rtjcs_itr = rtjcs.find(rtjc_id);
+            eosio_assert(rtjcs_itr != rtjcs.end(), "rtjc id not found.");
+            eosio_assert(rtjcs_itr->claimant == claimant, "You are not the claimant in this rtjc.");
+
+            rtjcs.modify( rtjcs_itr, 0, [&]( auto& rtjc ) {
+                rtjc.rtjc_dropped = true;
+            });
+        }
+
+        //@abi action
         void dropcase(const uint64_t case_id, const account_name claimant){
             require_auth(claimant);
 
@@ -265,6 +296,20 @@ class arbitration : public eosio::contract {
             claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.is_rejected = true;
                 claim.rejection_reason = reason;
+            });
+        }
+
+        //@abi action
+        void rejectrtjc(const uint64_t rtjc_id, const checksum256& reason){
+            require_auth(_self);
+
+            rtjc_index rtjcs(_self, _self);
+            auto rtjcs_itr = rtjcs.find(rtjc_id);
+            eosio_assert(rtjcs_itr != rtjcs.end(), "rtjc id not found.");
+
+            rtjcs.modify( rtjcs_itr, 0, [&]( auto& rtjc ) {
+                rtjc.is_rejected = true;
+                rtjc.rejection_reason = reason;
             });
         }
 
@@ -390,31 +435,31 @@ class arbitration : public eosio::contract {
         }
 
         void log_claimant(const uint64_t case_id, const account_name claimant){
-            caselog_index caselogs(_self, claimant);
-            auto caselog_itr = caselogs.find(claimant);
-            if (caselog_itr == caselogs.end()){
-                caselogs.emplace(_self, [&](auto& caselog) {
-                    caselog.id = claimant;
-                    caselog.claimant_on_case_id.push_back(case_id);
+            prtcpntlog_index prtcpntlogs(_self, claimant);
+            auto prtcpntlog_itr = prtcpntlogs.find(claimant);
+            if (prtcpntlog_itr == prtcpntlogs.end()){
+                prtcpntlogs.emplace(_self, [&](auto& prtcpntlog) {
+                    prtcpntlog.id = claimant;
+                    prtcpntlog.claimant_on_case_id.push_back(case_id);
                 });
             } else {
-                caselogs.modify( caselog_itr, 0, [&]( auto& caselog ) {
-                    caselog.claimant_on_case_id.push_back(case_id);
+                prtcpntlogs.modify( prtcpntlog_itr, 0, [&]( auto& prtcpntlog ) {
+                    prtcpntlog.claimant_on_case_id.push_back(case_id);
                 });
             }
         }
 
         void log_respondent(const uint64_t case_id, const account_name respondent){
-            caselog_index caselogs(_self, respondent);
-            auto caselog_itr = caselogs.find(respondent);
-            if (caselog_itr == caselogs.end()){
-                caselogs.emplace(_self, [&](auto& caselog) {
-                    caselog.id = respondent;
-                    caselog.respondent_on_case_id.push_back(case_id);
+            prtcpntlog_index prtcpntlogs(_self, respondent);
+            auto prtcpntlog_itr = prtcpntlogs.find(respondent);
+            if (prtcpntlog_itr == prtcpntlogs.end()){
+                prtcpntlogs.emplace(_self, [&](auto& prtcpntlog) {
+                    prtcpntlog.id = respondent;
+                    prtcpntlog.respondent_on_case_id.push_back(case_id);
                 });
             } else {
-                caselogs.modify( caselog_itr, 0, [&]( auto& caselog ) {
-                    caselog.respondent_on_case_id.push_back(case_id);
+                prtcpntlogs.modify( prtcpntlog_itr, 0, [&]( auto& prtcpntlog ) {
+                    prtcpntlog.respondent_on_case_id.push_back(case_id);
                 });
             }
         }
@@ -539,17 +584,17 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
-        //@abi table caselog i64
-        struct caselog {
+        //@abi table prtcpntlog i64
+        struct prtcpntlog {
             account_name id;
             vector<uint64_t> claimant_on_case_id;
             vector<uint64_t> respondent_on_case_id;
 
             account_name primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( caselog, (id)(claimant_on_case_id)(respondent_on_case_id) )
+            EOSLIB_SERIALIZE( prtcpntlog, (id)(claimant_on_case_id)(respondent_on_case_id) )
         };
-        typedef eosio::multi_index< N(caselog), caselog > caselog_index;
+        typedef eosio::multi_index< N(prtcpntlog), prtcpntlog > prtcpntlog_index;
 
         //@abi table arbfee i64
         struct arbfee {
