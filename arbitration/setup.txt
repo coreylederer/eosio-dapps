@@ -95,3 +95,6 @@ cleos --wallet-url http://localhost:8899 set account permission alice active '{"
 cleos --wallet-url http://localhost:8899 push action arbitration assignarb '[0,"doug"]' -p arbitration
 
 cleos --wallet-url http://localhost:8899 push action arbitration opencase '[1]' -p arbitration
+
+
+cleos -v --wallet-url http://localhost:8899 push action arbitration submitclaim '["alice",["bob","sam"],false,0,["98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e","98c31382f25c8e23be967ecfdf6be943631608975d2709a51bfab680982f782e"],["Shows my loss","google.com","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c","See here where.","amazon.com","913d07d002338bf3658138eb20dd2427e5195c9bed52eac7dd639ac13891e75c"],"2.0000 EOS"]' -p alice
