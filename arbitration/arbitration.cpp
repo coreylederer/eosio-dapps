@@ -50,6 +50,7 @@ class arbitration : public eosio::contract {
                 claim.fee_paid = true;
             });
             print("Your claim id is ", claim_id, ".");
+            print("Your claim id is ", claim_id, ".");
         }
 
         //@abi action
@@ -65,13 +66,15 @@ class arbitration : public eosio::contract {
                 arbcase.id              = next_case_id();
                 case_id                 = arbcase.id;
                 arbcase.claimants.push_back(ctoac.claimant);
-                arbcase.respondents.push_back(ctoac.respondents);
+                for (auto &respondent : ctoac.respondents) {
+                    arbcase.respondents.push_back(respondent);
+                }
                 filing claimant_filing{ctoac.claimant,ctoac.documents,ctoac.tx_ids};
-                arbacse.filings.push_back(claimant_filing);
+                arbcase.filings.push_back(claimant_filing);
                 for (auto &respondent : ctoac.respondents) {
                     filing respondent_filing;
                     respondent_filing.belongs_to = respondent;
-                    arbacse.filings.push_back(respondent_filing);
+                    arbcase.filings.push_back(respondent_filing);
                 }
                 arbcase.time_opened = now();
             });
@@ -193,6 +196,7 @@ class arbitration : public eosio::contract {
             bool case_dropped = false;
             bool can_delete = false;
             bool is_resolved = false;
+            time time_closed;
             asset fee;
             bool fee_paid = false;
             asset bond;
@@ -207,16 +211,14 @@ class arbitration : public eosio::contract {
             checksum256 remedy;
             bool requested_remedy = false;
             bool remedy_fulfilled = false;
-            checksum256 documents;
-            string tx_id;
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( arbcase, (id)(claimants)(respondents)(arbitrators)(case_dropped)
-                            (is_resolved)(fee)(fee_paid)(bond)(bond_fronted)(bond_dispersed)
-                            (to_claimant)(to_respondent)(to_arbitrator)(to_arbitration_forum)
-                            (in_favor_of)(ruling)(remedy)(requested_remedy)(remedy_fulfilled)
-                            (documents)(tx_id) )
+            EOSLIB_SERIALIZE( arbcase, (id)(claimants)(respondents)(arbitrators)(filings)
+                            (time_opened)(case_dropped)(can_delete)(is_resolved)(time_closed)(fee)
+                            (fee_paid)(bond)(bond_fronted)(bond_dispersed)(to_claimant)
+                            (to_respondent)(to_arbitrator)(to_arbitration_forum)(in_favor_of)
+                            (ruling)(remedy)(requested_remedy)(remedy_fulfilled) )
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
@@ -257,4 +259,4 @@ class arbitration : public eosio::contract {
         // }
 };
 
-EOSIO_ABI( arbitration, (submitclaim) )
+EOSIO_ABI( arbitration, (submitclaim)(opencase) )
