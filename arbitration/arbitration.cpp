@@ -70,6 +70,7 @@ class arbitration : public eosio::contract {
             });
         }
 
+        // TODO: make a vector of drops for each claimant
         //@abi action
         void dropcase(const uint64_t case_id, const account_name claimant){
             require_auth(claimant);
@@ -96,7 +97,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void rejectclaim(const uint64_t claim_id, const checksum256& reason){
+        void rejectclaim(const uint64_t claim_id, const document doc){
             require_auth(_self);
 
             claim_index claims(_self, _self);
@@ -105,12 +106,13 @@ class arbitration : public eosio::contract {
 
             claims.modify( claims_itr, 0, [&]( auto& claim ) {
                 claim.is_rejected = true;
-                claim.rejection_reason = reason;
+                claim.rejection_reason = doc;
+                claim.can_delete = true;
             });
         }
 
         //@abi action
-        void submitruling(const uint64_t case_id, const account_name party, const checksum256& ruling, const account_name arbitrator) {
+        void submitruling(const uint64_t case_id, const document ruling, const account_name arbitrator) {
             require_auth(arbitrator);
 
             arbcase_index arbcases(_self, _self);
@@ -118,7 +120,6 @@ class arbitration : public eosio::contract {
             eosio_assert(arbcase_itr != arbcases.end(), "Filing id not found.");
             eosio_assert(std::find(arbcase_itr->arbitrators.begin(), arbcase_itr->arbitrators.end(), arbitrator) != arbcase_itr->arbitrators.end(), "You are not an arbitrator assigned to this case.");
             arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                arbcase.in_favor_of = party;
                 arbcase.ruling = ruling;
             });
         }
@@ -222,7 +223,7 @@ class arbitration : public eosio::contract {
 
         // remedy requested
         //@abi action
-        void remedyr(const uint64_t case_id, const account_name arbitrator, const checksum256& remedy) {
+        void remedyr(const uint64_t case_id, const account_name arbitrator, const document remedy) {
             //require_auth(arbitrator);
 
             arbcase_index arbcases(_self, _self);
@@ -341,7 +342,7 @@ class arbitration : public eosio::contract {
             bool claim_dropped = false;
             bool can_delete = false;
             bool is_rejected = false;
-            checksum256 rejection_reason;
+            document rejection_reason;
             asset fee;
             bool fee_paid = false;
             asset bond;
@@ -376,9 +377,8 @@ class arbitration : public eosio::contract {
             asset to_respondent;
             asset to_arbitrator;
             asset to_arbitration_forum;
-            account_name in_favor_of;
-            checksum256 ruling;
-            checksum256 remedy;
+            document ruling;
+            document remedy;
             bool requested_remedy = false;
             bool remedy_fulfilled = false;
 
@@ -387,7 +387,7 @@ class arbitration : public eosio::contract {
             EOSLIB_SERIALIZE( arbcase, (id)(claimants)(respondents)(arbitrators)(filings)
                             (time_opened)(case_dropped)(can_delete)(is_resolved)(time_closed)(fee)
                             (fee_paid)(bond)(bond_fronted)(bond_dispersed)(to_claimant)
-                            (to_respondent)(to_arbitrator)(to_arbitration_forum)(in_favor_of)
+                            (to_respondent)(to_arbitrator)(to_arbitration_forum)
                             (ruling)(remedy)(requested_remedy)(remedy_fulfilled) )
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
