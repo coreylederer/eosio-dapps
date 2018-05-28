@@ -426,7 +426,7 @@ class arbitration : public eosio::contract {
 
             claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
-            
+
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(!claims_itr->claim_dropped, "Cannot post a bond for a claim that has been dropped.");
             eosio_assert(!claims_itr->is_rejected, "Cannot post a bond for a claim that has been rejected.");
@@ -573,10 +573,6 @@ class arbitration : public eosio::contract {
             asset bond;
             bool bond_fronted = false;
             bool bond_dispersed = false;
-            asset to_claimant;
-            asset to_respondent;
-            asset to_arbitrator;
-            asset to_arbitration_forum;
             document ruling;
             document remedy;
             bool requested_remedy = false;
