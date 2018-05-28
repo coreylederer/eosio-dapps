@@ -36,11 +36,11 @@ class arbitration : public eosio::contract {
                          const asset& fee) {
             require_auth(claimant);
 
-            uint64_t claim_id;
             claim_index claims(_self,_self);
 
             // TODO: pay_fee
 
+            uint64_t claim_id;
             claims.emplace(claimant, [&](auto& claim) {
                 claim.id = next_claim_id();
                 claim_id = claim.id;
@@ -48,7 +48,6 @@ class arbitration : public eosio::contract {
                 claim.respondents = respondents;
                 claim.tx_ids = tx_ids;
                 claim.documents = documents;
-                claim.time_submitted = now();
                 claim.fee = fee;
                 claim.fee_paid = true;
             });
@@ -66,6 +65,8 @@ class arbitration : public eosio::contract {
             eosio_assert(arbcase_itr != arbcases.end(), "Case id not found.");
             eosio_assert(!arbcase_itr->is_resolved, "Cannot submit a filing on a case that has already been resolved.");
             eosio_assert(!arbcase_itr->can_delete, "Cannot submit a filing on a case that is set to be deleted.");
+            eosio_assert(std::find(arbcase_itr->claimants.begin(), arbcase_itr->claimants.end(), party) != arbcase_itr->claimants.end() || 
+                         std::find(arbcase_itr->respondents.begin(), arbcase_itr->respondents.end(), party) != arbcase_itr->respondents.end(), "You are not authorized to submit a filing to this case.");
             
             uint64_t submitted_filing_id;
             sbmttdflng_index sbmttdflngs(_self,_self);
@@ -77,36 +78,60 @@ class arbitration : public eosio::contract {
                 sbmttdflng.for_case = case_id;
                 sbmttdflng.tx_ids = tx_ids;
                 sbmttdflng.documents = documents;
-                sbmttdflng.time_submitted = now();
             });
             print("Your submitted filing id is ", submitted_filing_id, ".");
         }
 
         //@abi action
-        void addfiling(const uint64_t sf_id, const uint64_t case_id,
-                       const account_name party, const account_name arbitrator) {
+        void deletefiling(const uint64_t sf_id, const account_name party) {
+            require_auth(party);
+
+            sbmttdflng_index sbmttdflngs(_self, _self);
+            auto sbmttdflng_itr = sbmttdflngs.find(sf_id);
+
+            eosio_assert(sbmttdflng_itr != sbmttdflngs.end(), "Filing id not found.");
+            eosio_assert(sbmttdflng_itr->can_delete, "Filing cannot be deleted at this time.");
+
+            sbmttdflngs.erase(sbmttdflng_itr);
+        }
+
+        //@abi action
+        void addfiling(const uint64_t sf_id, const uint64_t case_id, const account_name arbitrator) {
             require_auth(arbitrator);
 
             arbcase_index arbcases(_self, _self);
             auto arbcase_itr = arbcases.find(case_id);
+
             eosio_assert(arbcase_itr != arbcases.end(), "Case id not found.");
             eosio_assert(!arbcase_itr->is_resolved, "Cannot submit a filing on a case that has already been resolved.");
             eosio_assert(!arbcase_itr->can_delete, "Cannot submit a filing on a case that is set to be deleted.");
-            eosio_assert(std::find(arbcase_itr->arbitrators.begin(), arbcase_itr->arbitrators.end(), arbitrator) == arbcase_itr->arbitrators.end(), "That arbitrator is already assigned to this case.");
+            eosio_assert(std::find(arbcase_itr->arbitrators.begin(), arbcase_itr->arbitrators.end(), arbitrator) != arbcase_itr->arbitrators.end(), "You are not an arbitrator assigned to this case.");
 
-            uint64_t submitted_filing_id;
-            sbmttdflng_index sbmttdflngs(_self,_self);
+            sbmttdflng_index sbmttdflngs(_self, _self);
+            auto sbmttdflng_itr = sbmttdflngs.find(sf_id);
 
-            sbmttdflngs.emplace(party, [&](auto& sbmttdflng) {
-                sbmttdflng.id = next_sf_id();
-                sbmttdflng_id = sbmttdflng.id;
-                sbmttdflng.belongs_to = party;
-                sbmttdflng.for_case = case_id;
-                sbmttdflng.tx_ids = tx_ids;
-                sbmttdflng.documents = documents;
-                sbmttdflng.time_submitted = now();
+            eosio_assert(sbmttdflng_itr != sbmttdflngs.end(), "Submitted filing id not found.");
+            eosio_assert(!sbmttdflng_itr->can_delete, "Cannot submit a filing that is set to be deleted.");
+            eosio_assert(sbmttdflng_itr->for_case == case_id, "Case ids do not match.");
+
+            int counter = 0;
+            arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
+                for (auto &filing : arbcase.filings) {
+                    if (filing.belongs_to == sbmttdflng_itr->belongs_to) {
+                        for (auto &docs : sbmttdflng_itr->documents) {
+                            arbcase.filings[counter].push_back(docs);
+                        }
+                        for (auto &tx_id : sbmttdflng_itr->tx_ids) {
+                            arbcase.filings[counter].push_back(tx_id);
+                        }
+                    }
+                    counter++;
+                }
             });
-            print("Your submitted filing id is ", submitted_filing_id, ".");
+
+            sbmttdflngs.modify( sbmttdflng_itr, 0, [&]( auto& sbmttdflng ) {
+                sbmttdflng.can_delete = true;
+            });
         }
 
         //@abi action
@@ -115,6 +140,7 @@ class arbitration : public eosio::contract {
 
             claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
+
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant on this claim.");
             eosio_assert(!claims_itr->claim_dropped, "Cannot drop a claim that has already been dropped.");
@@ -129,18 +155,18 @@ class arbitration : public eosio::contract {
 
         // TODO: make a vector of drops for each claimant
         //@abi action
-        void dropcase(const uint64_t case_id, const account_name claimant){
-            require_auth(claimant);
+        // void dropcase(const uint64_t case_id, const account_name claimant){
+        //     require_auth(claimant);
 
-            arbcase_index arbcases(_self, _self);
-            auto arbcase_itr = arbcases.find(case_id);
-            eosio_assert(arbcase_itr != arbcases.end(), "Case id not found.");
-            eosio_assert(arbcase_itr->claimants.front() == claimant, "You are not the claimant on this case.");
+        //     arbcase_index arbcases(_self, _self);
+        //     auto arbcase_itr = arbcases.find(case_id);
+        //     eosio_assert(arbcase_itr != arbcases.end(), "Case id not found.");
+        //     eosio_assert(arbcase_itr->claimants.front() == claimant, "You are not the claimant on this case.");
 
-            arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                arbcase.case_dropped = true;
-            });
-        }
+        //     arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
+        //         arbcase.case_dropped = true;
+        //     });
+        // }
 
         //@abi action
         void deleteclaim(uint64_t claim_id, const account_name claimant) {
@@ -148,10 +174,43 @@ class arbitration : public eosio::contract {
 
             claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
+
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(claims_itr->claimant == claimant, "You are not the claimant on this claim.");
-            eosio_assert(claims_itr->can_delete,"Claim cannot be deleted.");
+            eosio_assert(claims_itr->can_delete,"Claim cannot be deleted at this time.");
+
             claims.erase(claims_itr);
+        }
+
+        //@abi action
+        void deletecase(uint64_t case_id, const account_name arbitrator) {
+            require_auth(arbitrator);
+
+            arbcase_index arbcases(_self, _self);
+            auto arbcases_itr = arbcases.find(case_id);
+
+            eosio_assert(arbcases_itr != arbcases.end(), "Case id not found.");
+            eosio_assert(std::find(arbcases_itr->arbitrators.begin(), arbcases_itr->arbitrators.end(), arbitrator) != arbcases_itr->arbitrators.end(), "You are not an arbitrator assigned to this case.");
+            eosio_assert(arbcases_itr->can_delete,"Case cannot be deleted at this time.");
+
+            arbcases.erase(arbcases_itr);
+        }
+
+        // can delete case
+        //@abi action
+        void candltcase(uint64_t case_id, const account_name arbitrator) {
+            require_auth(arbitrator);
+
+            arbcase_index arbcases(_self, _self);
+            auto arbcases_itr = arbcases.find(case_id);
+
+            eosio_assert(arbcases_itr != arbcases.end(), "Case id not found.");
+            eosio_assert(std::find(arbcases_itr->arbitrators.begin(), arbcases_itr->arbitrators.end(), arbitrator) != arbcases_itr->arbitrators.end(), "You are not an arbitrator assigned to this case.");
+            eosio_assert(!arbcases_itr->can_delete,"Case is already set to be deleted.");
+
+            arbcases.modify( arbcases_itr, 0, [&]( auto& arbcase ) {
+                arbcase.can_delete = true;
+            });
         }
 
         //@abi action
@@ -189,37 +248,38 @@ class arbitration : public eosio::contract {
             });
         }
 
+        // TODO: does only the claimant pay a fee or do the other claimants pay? What about bonds for the respondents?
         //@abi action
-        void dispersebond(const uint64_t case_id, const asset& to_claimant, const asset& to_respondent,
-                          const asset& to_arbitrator, const asset& to_arbitration_forum,
-                          const account_name arbitrator) {
-            require_auth(arbitrator);
+        // void dispersebond(const uint64_t case_id, const asset& to_claimant, const asset& to_respondent,
+        //                   const asset& to_arbitrator, const asset& to_arbitration_forum,
+        //                   const account_name arbitrator) {
+        //     require_auth(arbitrator);
 
-            arbcase_index arbcases(_self, _self);
-            auto arbcase_itr = arbcases.find(case_id);
-            eosio_assert(arbcase_itr != arbcases.end(), "Case id not found.");
-            eosio_assert(!arbcase_itr->is_resolved, "Cannot disperse a bond on a case that has already been resolved.");
-            eosio_assert(!arbcase_itr->can_delete, "Cannot disperse a bond on a case that is set to be deleted.");
-            eosio_assert(std::find(arbcase_itr->arbitrators.begin(), arbcase_itr->arbitrators.end(), arbitrator) != arbcase_itr->arbitrators.end(), "You are not an arbitrator assigned to this case.");
+        //     arbcase_index arbcases(_self, _self);
+        //     auto arbcase_itr = arbcases.find(case_id);
+        //     eosio_assert(arbcase_itr != arbcases.end(), "Case id not found.");
+        //     eosio_assert(!arbcase_itr->is_resolved, "Cannot disperse a bond on a case that has already been resolved.");
+        //     eosio_assert(!arbcase_itr->can_delete, "Cannot disperse a bond on a case that is set to be deleted.");
+        //     eosio_assert(std::find(arbcase_itr->arbitrators.begin(), arbcase_itr->arbitrators.end(), arbitrator) != arbcase_itr->arbitrators.end(), "You are not an arbitrator assigned to this case.");
             
-            validate_asset(to_claimant);
-            validate_asset(to_respondent);
-            validate_asset(to_arbitrator);
-            validate_asset(to_arbitration_forum);
+        //     validate_asset(to_claimant);
+        //     validate_asset(to_respondent);
+        //     validate_asset(to_arbitrator);
+        //     validate_asset(to_arbitration_forum);
             
-            auto total_amount = to_claimant.amount + to_respondent.amount + to_arbitrator.amount + to_arbitration_forum.amount;
-            eosio_assert(total_amount <= arbcase_itr->bond.amount, "Attempting to disperse a bond amount that is greater than the fronted bond.");
+        //     auto total_amount = to_claimant.amount + to_respondent.amount + to_arbitrator.amount + to_arbitration_forum.amount;
+        //     eosio_assert(total_amount <= arbcase_itr->bond.amount, "Attempting to disperse a bond amount that is greater than the fronted bond.");
 
-            // TODO: send eos to appropriate parties
+        //     // TODO: send eos to appropriate parties
 
-            arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                arbcase.bond_dispersed = true;
-                arbcase.to_claimant = to_claimant;
-                arbcase.to_respondent = to_respondent;
-                arbcase.to_arbitrator = to_arbitrator;
-                arbcase.to_arbitration_forum = to_arbitration_forum;
-            });
-        }
+        //     arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
+        //         arbcase.bond_dispersed = true;
+        //         arbcase.to_claimant = to_claimant;
+        //         arbcase.to_respondent = to_respondent;
+        //         arbcase.to_arbitrator = to_arbitrator;
+        //         arbcase.to_arbitration_forum = to_arbitration_forum;
+        //     });
+        // }
 
         //@abi action
         void closecase(const uint64_t case_id, const account_name arbitrator) {
@@ -288,7 +348,6 @@ class arbitration : public eosio::contract {
 
             eosio_assert(ctoac.fee_paid, "Cannot open a case if the filing fee has not been paid.");
             eosio_assert(ctoac.bond_fronted, "Cannot open a case if the required bond has not been fronted.");
-
             eosio_assert(!ctoac.is_rejected, "Cannot open a case for a claim that was rejected.");
             eosio_assert(!ctoac.claim_dropped, "Cannot open a case for a claim that was dropped.");
 
@@ -367,6 +426,7 @@ class arbitration : public eosio::contract {
 
             claim_index claims(_self, _self);
             auto claims_itr = claims.find(claim_id);
+            
             eosio_assert(claims_itr != claims.end(), "Claim id not found.");
             eosio_assert(!claims_itr->claim_dropped, "Cannot post a bond for a claim that has been dropped.");
             eosio_assert(!claims_itr->is_rejected, "Cannot post a bond for a claim that has been rejected.");
@@ -465,7 +525,6 @@ class arbitration : public eosio::contract {
             vector<document> documents;
             vector<string> tx_ids;
             bool can_delete = false;
-            time time_submitted;
 
             uint64_t primary_key() const { return id; }
 
@@ -480,7 +539,6 @@ class arbitration : public eosio::contract {
             vector<account_name> respondents;
             vector<string> tx_ids;
             vector<document> documents;
-            time time_submitted;
             bool claim_dropped = false;
             bool can_delete = false;
             bool is_rejected = false;
