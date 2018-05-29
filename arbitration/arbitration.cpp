@@ -11,7 +11,6 @@
 
 using eosio::asset;
 using eosio::print;
-using std::vector;
 using std::string;
 
 class arbitration : public eosio::contract {
@@ -26,13 +25,13 @@ class arbitration : public eosio::contract {
 
         struct filing {
             account_name belongs_to;
-            vector<document> documents;
-            vector<string> tx_ids;
+            std::vector<document> documents;
+            std::vector<string> tx_ids;
         };
 
         //@abi action
-        void submitclaim(const account_name claimant, const vector<account_name>& respondents,
-                         const vector<string>& tx_ids, const vector<document>& documents,
+        void submitclaim(const account_name claimant, const std::vector<account_name>& respondents,
+                         const std::vector<string>& tx_ids, const std::vector<document>& documents,
                          const asset& fee) {
             require_auth(claimant);
 
@@ -55,8 +54,8 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void submitfiling(const account_name party, const uint64_t case_id, const vector<string>& tx_ids,
-                          const vector<document>& documents) {
+        void submitfiling(const account_name party, const uint64_t case_id, const std::vector<string>& tx_ids,
+                          const std::vector<document>& documents) {
             require_auth(party);
 
             arbcase_index arbcases(_self, _self);
@@ -73,7 +72,7 @@ class arbitration : public eosio::contract {
 
             sbmttdflngs.emplace(party, [&](auto& sbmttdflng) {
                 sbmttdflng.id = next_sf_id();
-                sbmttdflng_id = sbmttdflng.id;
+                submitted_filing_id = sbmttdflng.id;
                 sbmttdflng.belongs_to = party;
                 sbmttdflng.for_case = case_id;
                 sbmttdflng.tx_ids = tx_ids;
@@ -119,10 +118,10 @@ class arbitration : public eosio::contract {
                 for (auto &filing : arbcase.filings) {
                     if (filing.belongs_to == sbmttdflng_itr->belongs_to) {
                         for (auto &docs : sbmttdflng_itr->documents) {
-                            arbcase.filings[counter].push_back(docs);
+                            arbcase.filings[counter].documents.push_back(docs);
                         }
                         for (auto &tx_id : sbmttdflng_itr->tx_ids) {
-                            arbcase.filings[counter].push_back(tx_id);
+                            arbcase.filings[counter].tx_ids.push_back(tx_id);
                         }
                     }
                     counter++;
@@ -153,7 +152,7 @@ class arbitration : public eosio::contract {
             });
         }
 
-        // TODO: make a vector of drops for each claimant
+        // TODO: make a std::vector of drops for each claimant
         //@abi action
         // void dropcase(const uint64_t case_id, const account_name claimant){
         //     require_auth(claimant);
@@ -270,7 +269,7 @@ class arbitration : public eosio::contract {
         //     auto total_amount = to_claimant.amount + to_respondent.amount + to_arbitrator.amount + to_arbitration_forum.amount;
         //     eosio_assert(total_amount <= arbcase_itr->bond.amount, "Attempting to disperse a bond amount that is greater than the fronted bond.");
 
-        //     // TODO: send eos to appropriate parties
+                // TODO: send eos to appropriate parties
 
         //     arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
         //         arbcase.bond_dispersed = true;
@@ -332,7 +331,7 @@ class arbitration : public eosio::contract {
             for (auto &arb : arbcase_itr->arbitrators) {
                 if (arb == arbitrator) {
                     arbcases.modify( arbcase_itr, 0, [&]( auto& arbcase ) {
-                        arbcase.arbitrators.erase(counter);
+                        arbcase.arbitrators.erase(arbcase.arbitrators.begin() + counter);
                     });
                 }
                 counter++;
@@ -522,13 +521,13 @@ class arbitration : public eosio::contract {
             uint64_t id;
             uint64_t for_case;
             account_name belongs_to;
-            vector<document> documents;
-            vector<string> tx_ids;
+            std::vector<document> documents;
+            std::vector<string> tx_ids;
             bool can_delete = false;
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( sbmttdflng, (id)(for_case)(belongs_to)(documents)(tx_ids)(can_delete)(time_submitted) )
+            EOSLIB_SERIALIZE( sbmttdflng, (id)(for_case)(belongs_to)(documents)(tx_ids)(can_delete) )
         };
         typedef eosio::multi_index< N(sbmttdflng), sbmttdflng > sbmttdflng_index;
 
@@ -536,9 +535,9 @@ class arbitration : public eosio::contract {
         struct claim {
             uint64_t id;
             account_name claimant;
-            vector<account_name> respondents;
-            vector<string> tx_ids;
-            vector<document> documents;
+            std::vector<account_name> respondents;
+            std::vector<string> tx_ids;
+            std::vector<document> documents;
             bool claim_dropped = false;
             bool can_delete = false;
             bool is_rejected = false;
@@ -550,19 +549,19 @@ class arbitration : public eosio::contract {
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondents)(tx_ids)(documents)(time_submitted)
-                                     (claim_dropped)(can_delete)(is_rejected)(rejection_reason)(fee)
-                                     (fee_paid)(bond)(bond_fronted) )
+            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondents)(tx_ids)(documents)(claim_dropped)
+                                     (can_delete)(is_rejected)(rejection_reason)(fee)(fee_paid)(bond)
+                                     (bond_fronted) )
         };
         typedef eosio::multi_index< N(claim), claim > claim_index;
 
         //@abi table arbcase i64
         struct arbcase {
             uint64_t id;
-            vector<account_name> claimants;
-            vector<account_name> respondents;
-            vector<account_name> arbitrators;
-            vector<filing> filings;
+            std::vector<account_name> claimants;
+            std::vector<account_name> respondents;
+            std::vector<account_name> arbitrators;
+            std::vector<filing> filings;
             time time_opened;
             bool case_dropped = false;
             bool can_delete = false;
@@ -582,9 +581,8 @@ class arbitration : public eosio::contract {
 
             EOSLIB_SERIALIZE( arbcase, (id)(claimants)(respondents)(arbitrators)(filings)
                             (time_opened)(case_dropped)(can_delete)(is_resolved)(time_closed)(fee)
-                            (fee_paid)(bond)(bond_fronted)(bond_dispersed)(to_claimant)
-                            (to_respondent)(to_arbitrator)(to_arbitration_forum)
-                            (ruling)(remedy)(requested_remedy)(remedy_fulfilled) )
+                            (fee_paid)(bond)(bond_fronted)(bond_dispersed)(ruling)(remedy)
+                            (requested_remedy)(remedy_fulfilled) )
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
@@ -592,8 +590,8 @@ class arbitration : public eosio::contract {
         //@abi table crlog i64
         struct crlog {
             account_name id;
-            vector<uint64_t> claimant_on_case_id;
-            vector<uint64_t> respondent_on_case_id;
+            std::vector<uint64_t> claimant_on_case_id;
+            std::vector<uint64_t> respondent_on_case_id;
 
             account_name primary_key() const { return id; }
 
@@ -638,4 +636,4 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration, (submitclaim)(opencase) )
+EOSIO_ABI( arbitration, (submitclaim)(submitfiling)(deletefiling)(addfiling)(dropclaim)(deleteclaim)(deletecase)(candltcase)(rejectclaim)(submitruling)(closecase)(assignarb)(removearb)(opencase)(remedyr)(remedyf)(setbond)(frontbond)(setarbfee) )
