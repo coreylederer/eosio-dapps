@@ -30,7 +30,7 @@ class arbitration : public eosio::contract {
         };
 
         //@abi action
-        void submitclaim(const account_name claimant, const std::vector<account_name>& respondents,
+        void submitclaim(const account_name claimant, const account_name respondent,
                          const std::vector<string>& tx_ids, const std::vector<document>& documents,
                          const asset& fee) {
             require_auth(claimant);
@@ -131,6 +131,26 @@ class arbitration : public eosio::contract {
             sbmttdflngs.modify( sbmttdflng_itr, 0, [&]( auto& sbmttdflng ) {
                 sbmttdflng.can_delete = true;
             });
+        }
+
+        //@abi addclaimant
+        void addclaimant() {
+
+        }
+    
+        //@abi addclaimant
+        void rmclaimant() {
+            
+        }
+
+        //@abi addclaimant
+        void addrespondent() {
+            
+        }
+
+        //@abi addclaimant
+        void rmrespondent() {
+            
         }
 
         //@abi action
@@ -535,23 +555,27 @@ class arbitration : public eosio::contract {
         struct claim {
             uint64_t id;
             account_name claimant;
-            std::vector<account_name> respondents;
+            account_name respondent;
             std::vector<string> tx_ids;
             std::vector<document> documents;
             bool claim_dropped = false;
             bool can_delete = false;
             bool is_rejected = false;
             document rejection_reason;
-            asset fee;
-            bool fee_paid = false;
+            asset submittal_fee;
+            bool submittal_fee_paid = false;
+            asset case_fee;
+            asset damages;
             asset bond;
-            bool bond_fronted = false;
+            asset min_bond_to_front;
+            bool min_bond_fronted = false;
 
             uint64_t primary_key() const { return id; }
 
-            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondents)(tx_ids)(documents)(claim_dropped)
-                                     (can_delete)(is_rejected)(rejection_reason)(fee)(fee_paid)(bond)
-                                     (bond_fronted) )
+            EOSLIB_SERIALIZE( claim, (id)(claimant)(respondent)(tx_ids)(documents)(claim_dropped)
+                                     (can_delete)(is_rejected)(rejection_reason)(submittal_fee)
+                                     (submittal_fee_paid)(case_fee)(damages)(bond)(min_bond_to_front)
+                                     (min_bond_fronted) )
         };
         typedef eosio::multi_index< N(claim), claim > claim_index;
 
@@ -562,13 +586,11 @@ class arbitration : public eosio::contract {
             std::vector<account_name> respondents;
             std::vector<account_name> arbitrators;
             std::vector<filing> filings;
-            time time_opened;
             bool case_dropped = false;
             bool can_delete = false;
             bool is_resolved = false;
-            time time_closed;
-            asset fee;
-            bool fee_paid = false;
+            asset case_fee;
+            asset damages;
             asset bond;
             bool bond_fronted = false;
             bool bond_dispersed = false;
@@ -599,15 +621,15 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(crlog), crlog > crlog_index;
 
-        //@abi table arbfee i64
-        struct arbfee {
-            asset fee;
+        //@abi table submittalfee i64
+        struct submittalfee {
+            asset submittal_fee;
 
-            int64_t primary_key() const { return fee.amount; }
+            int64_t primary_key() const { return submittal_fee.amount; }
 
-            EOSLIB_SERIALIZE( arbfee, (fee) )
+            EOSLIB_SERIALIZE( submittalfee, (submittal_fee) )
         };
-        typedef eosio::singleton< N(arbfee), arbfee > arbfee_index;
+        typedef eosio::singleton< N(submittalfee), submittalfee > submittalfee_index;
 
         typedef uint64_t id;
         typedef eosio::singleton<N(claimid), id>  claim_id_index;
