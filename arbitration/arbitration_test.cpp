@@ -18,7 +18,8 @@
 #else
 #define TESTER validating_tester
 #endif
-
+// on line 30 in Cmake file in unittest folder, not in build, add arbitration
+// add sub directory to Cmake file in contracts folder
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
