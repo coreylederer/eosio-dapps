@@ -3,12 +3,16 @@ keosd --http-server-address localhost:8899 --data-dir data
 nodeos --data-dir data --config-dir config
 
 cleos --wallet-url http://localhost:8899 wallet
+cleos --wallet-url http://localhost:8899 wallet unlock
 
 /Users/joneric/Documents/GitHub/eosio-dapps/arbitration
 
 Save password to use in the future to unlock this wallet.
 Without password imported keys will not be retrievable.
-"PW5KiCYvQa4BxniQyPBeSNKArT29j6pxVwd8RTKG35NT27SR22Mw8"
+"PW5K6jgaGxpNKR9B9xfBmdYEBuX4eU3ZoPwxh4jS7J3WmNPLcDA5r"
+
+cleos --wallet-url http://localhost:8899 wallet import 5KkDnKpDGFgodR5brghiGpmVkUBn8ZphWQParuq1A5CuXeq7YAK
+cleos --wallet-url http://localhost:8899 wallet import 5JKYwYf5JmjzB9Fty3ZnCw6vGXvJd8wn66kLVj268mKEE5bQFDe
 
 Alice - user
 owner
@@ -17,6 +21,9 @@ Public key: EOS5rxttfUM3Mb3dbD45yArWrwqznMubxQaASR1oS3886GaxeaQZ4
 active
 Private key: 5JKYwYf5JmjzB9Fty3ZnCw6vGXvJd8wn66kLVj268mKEE5bQFDe
 Public key: EOS7qdCVGfEBt3MonTYiGKQqnrYciLsFfaRWTyLCu5VtsH339tBZp
+
+cleos --wallet-url http://localhost:8899 wallet import 5KShHnnqVtKGwKsv6UhihYjM72kLfRJf4XXiF5w6PJKcvA7CTGy
+cleos --wallet-url http://localhost:8899 wallet import 5HvTyCZzCmovJLPuu17nGZHafW2qsAAAGsrTbt8LJFFNvpY4ssh
 
 Bob - user
 owner
@@ -41,6 +48,9 @@ Public key: EOS59Nz6coSb1pw4DejNfhwwyQu2XjhDF4gzN22bYAeGJDMKqVvje
 active
 Private key: 5KLX1Kc2fEf7AyfKxZn6EWsjYZCs1hpKp2hXxAqySqCRjpYwHac
 Public key: EOS7CTwANAWRnPuub2J4wgiV4qn2ZUY6wSw8oQrp75z4JJqycJeqM
+
+cleos --wallet-url http://localhost:8899 wallet import 5KUeS8ejVnYig7UQaFy7uGrih1LQrGTrgxw24UNt4g1JdybhA4M
+cleos --wallet-url http://localhost:8899 wallet import 5JbJv2rXAfYhYcNjLKnW6FJpuk5HN5Sxjq81jzC41QHQ1rEwd6Q
 
 arbitration
 owner

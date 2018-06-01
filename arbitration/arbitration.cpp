@@ -65,7 +65,7 @@ class arbitration : public eosio::contract {
 
         id next_case_id(){
             case_id_index last_case_id(_self, _self);
-            id lcaseid = last_case_id.exists() ? last_case_id.get() + 1 : 32342523453454;
+            id lcaseid = last_case_id.exists() ? last_case_id.get() + 1 : 0;
             last_case_id.set(lcaseid,_self);
             return lcaseid;
         }
