@@ -26,8 +26,12 @@ class arbitration : public eosio::contract {
         struct filing {
             account_name belongs_to;
             std::vector<document> documents;
-            std::vector<string> tx_ids;
+            std::vector<transaction_id_type> tx_ids;
         };
+
+        struct user {
+
+        }
 
         //@abi action
         void submitclaim(const account_name claimant, const std::vector<account_name>& respondents,
