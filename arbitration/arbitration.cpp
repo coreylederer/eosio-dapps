@@ -17,12 +17,57 @@ using std::string;
 namespace controls {
     enum Person {arbitrator, claimant, respondent};
     enum Item   {document, transaction};
-    enum Place  {arbcase, claim};
+    enum Entity {arbcase, claim};
+    enum Monies {bond, fee, submittalfee};
 }
 
 class arbitration : public eosio::contract {
     public:
         explicit arbitration(action_name self) : contract(self) {}
+
+        bool exists(controls::Person who, controls::Entity where, const uint64_t entity_id,
+                    const account_name person) {
+            switch(who) {
+                case controls::arbitrator:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+                case controls::claimant:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+                case controls::respondent:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+            }
+        }
+
+        bool exists(controls::Item what, controls::Entity where, const uint64_t entity_id,
+                    const uint64_t item_id) {
+            switch(what) {
+                case controls::document:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+                case controls::transaction:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+            }
+        }
+
+        bool exists(controls::Entity what, const uint64_t entity_id) {
+            switch(what) {
+                case controls::arbcase:
+                case controls::claim:
+            }
+        }
 
         void add(controls::Person who, const account_name person_to_add,
                  const uint64_t arbcase_id, const account_name authority) {
@@ -42,7 +87,7 @@ class arbitration : public eosio::contract {
             }
         }
 
-        void add(controls::Item what, controls::Place where, const account_name owner,
+        void add(controls::Item what, controls::Entity where, const account_name owner,
                  const uint64_t item_id_to_add, const uint64_t arbcase_id,
                  const account_name authority) {
             switch(what) {
@@ -59,7 +104,7 @@ class arbitration : public eosio::contract {
             }
         }
 
-        void remove(controls::Item what, controls::Place where, const account_name owner,
+        void remove(controls::Item what, controls::Entity where, const account_name owner,
                  const uint64_t item_id_to_remove, const uint64_t arbcase_id,
                  const account_name authority) {
             switch(what) {
@@ -76,8 +121,27 @@ class arbitration : public eosio::contract {
             }
         }
 
-        void submit() {
+        void open(controls::Entity what, const account_name authority, uint64_t claim_id = 0) {
+            switch(what) {
+                case controls::arbcase:
+                case controls::claim:
+            }
+        }
 
+        void close(controls::Entity what, const account_name authority, uint64_t entity_id) {
+            switch(what) {
+                case controls::arbcase:
+                case controls::claim:
+            }
+        }
+
+        void set(controls::Monies what, asset amount, const account_name authority,
+                 const uint64_t entity_id = 0) {
+            switch(what) {
+                case controls::fee:
+                case controls::bond:
+                case controls::submittalfee:
+            }
         }
 
     private:
@@ -199,6 +263,14 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(arbcasebond), arbcasebond,
             indexed_by< N(byowner), const_mem_fun<arbcasebond, bool, &arbcasebond::by_current> >
             > arbcasebond_index;
+
+        //@abi table submittalfee i64
+        struct submittalfee {
+            asset fee;
+            int64_t primary_key() const { return fee.amount; }
+            EOSLIB_SERIALIZE( submittalfee, (fee) )
+        };
+        typedef eosio::singleton< N(submittalfee), submittalfee > submittalfee_index;
 
         typedef uint64_t id;
         typedef eosio::singleton<N(claimid), id>  claim_id_index;
