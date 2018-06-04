@@ -14,9 +14,71 @@ using eosio::asset;
 using eosio::vector;
 using std::string;
 
+namespace controls {
+    enum Person {arbitrator, claimant, respondent};
+    enum Item   {document, transaction};
+    enum Place  {arbcase, claim};
+}
+
 class arbitration : public eosio::contract {
     public:
         explicit arbitration(action_name self) : contract(self) {}
+
+        void add(controls::Person who, const account_name person_to_add,
+                 const uint64_t arbcase_id, const account_name authority) {
+            switch(who) {
+                case controls::arbitrator:
+                case controls::claimant:
+                case controls::respondent:
+            }
+        }
+
+        void remove(controls::Person who, const account_name person_to_remove,
+                    const uint64_t arbcase_id, const account_name authority) {
+            switch(who) {
+                case controls::arbitrator:
+                case controls::claimant:
+                case controls::respondent:
+            }
+        }
+
+        void add(controls::Item what, controls::Place where, const account_name owner,
+                 const uint64_t item_id_to_add, const uint64_t arbcase_id,
+                 const account_name authority) {
+            switch(what) {
+                case controls::document:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+                case controls::transaction:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+            }
+        }
+
+        void remove(controls::Item what, controls::Place where, const account_name owner,
+                 const uint64_t item_id_to_remove, const uint64_t arbcase_id,
+                 const account_name authority) {
+            switch(what) {
+                case controls::document:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+                case controls::transaction:
+                    switch(where) {
+                        case controls::arbcase:
+                        case controls::claim:
+                    }
+            }
+        }
+
+        void submit() {
+
+        }
 
     private:
         //@abi table claim i64
@@ -80,7 +142,7 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            string tx_id;
+            checksum256 tx_id;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
             EOSLIB_SERIALIZE( transaction, (id)(owner)(description)(link)(tx_id) )
