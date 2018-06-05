@@ -5,20 +5,18 @@
 #include <eosiolib/singleton.hpp>
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
-#include <vector>
 #include <string>
 
 using eosio::const_mem_fun;
 using eosio::indexed_by;
 using eosio::asset;
-using eosio::vector;
 using std::string;
 
 namespace controls {
+    enum Monies {bond, fee, submittalfee, bondowed};
     enum Person {arbitrator, claimant, respondent};
     enum Item   {document, transaction};
     enum Entity {arbcase, claim};
-    enum Monies {bond, fee, submittalfee};
 }
 
 class arbitration : public eosio::contract {
@@ -49,7 +47,7 @@ class arbitration : public eosio::contract {
                 case controls::arbitrator: {
                     switch(where) {
                         case controls::arbcase: {
-                            arbitrator_index arbitrators(_self, entity_id);
+                            arbitrator_index arbitrators(_self, entity_id); // entity_id is an arbcase id being used as the scope
                             auto arbitrators_itr = arbitrators.find(person);
                             return arbitrators_itr != arbitrators.end();
                         }
@@ -61,12 +59,12 @@ class arbitration : public eosio::contract {
                 case controls::claimant: {
                     switch(where) {
                         case controls::arbcase: {
-                            claimant_index claimants(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            claimant_index claimants(_self, entity_id); // entity_id is an arbcase id being used as the scope
                             auto claimants_itr = claimants.find(person);
                             return claimants_itr != claimants.end();
                         }
                         case controls::claim: {
-                            claimant_index claimants(_self, entity_id); // entity_id is a claim id being used as scope
+                            claimant_index claimants(_self, entity_id); // entity_id is a claim id being used as the scope
                             auto claimants_itr = claimants.find(person);
                             return claimants_itr != claimants.end();
                         }
@@ -121,10 +119,14 @@ class arbitration : public eosio::contract {
                 case controls::transaction: {
                     switch(where) {
                         case controls::arbcase: {
-
+                            transaction_index transactions(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            auto transactions_itr = transactions.find(item_id);
+                            return transactions_itr != transactions.end();
                         }
                         case controls::claim: {
-
+                            transaction_index transactions(_self, entity_id); // entity_id is a claim id being used as scope
+                            auto transactions_itr = transactions.find(item_id);
+                            return transactions_itr != transactions.end();
                         }
                         default: {
                             return false;
@@ -137,113 +139,316 @@ class arbitration : public eosio::contract {
             }
         }
 
-        void add(controls::Person who, const account_name person_to_add,
-                 const uint64_t arbcase_id, const account_name authority) {
-            switch(who) {
-                case controls::arbitrator:
-                    break;
-                case controls::claimant:
-                    break;
-                case controls::respondent:
-                    break;
+        bool exists(controls::Monies what, controls::Entity where, const uint64_t entity_id,
+                    const uint64_t item_id) {
+            switch(what) {
+                case controls::bond: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            document_index bond(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            auto bond_itr = bond.find(item_id);
+                            return bond_itr != bond.end();
+                        }
+                        case controls::claim: {
+                            document_index bond(_self, entity_id); // entity_id is a claim id being used as scope
+                            auto bond_itr = bond.find(item_id);
+                            return bond_itr != bond.end();
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::fee: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            transaction_index fee(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            auto fee_itr = fee.find(item_id);
+                            return fee_itr != fee.end();
+                        }
+                        case controls::claim: {
+                            transaction_index fee(_self, entity_id); // entity_id is a claim id being used as scope
+                            auto fee_itr = fee.find(item_id);
+                            return fee_itr != fee.end();
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
             }
         }
 
-        void remove(controls::Person who, const account_name person_to_remove,
-                    const uint64_t arbcase_id, const account_name authority) {
+        bool add(controls::Person who, controls::Entity where, const account_name person_to_add,
+                 const uint64_t entity_id, const account_name authority) {
             switch(who) {
-                case controls::arbitrator:
-                    break;
-                case controls::claimant:
-                    break;
-                case controls::respondent:
-                    break;
+                case controls::arbitrator: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::claimant: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::respondent: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
             }
         }
 
-        void add(controls::Item what, controls::Entity where, const account_name owner,
+        bool remove(controls::Person who, controls::Entity where, const account_name person_to_remove,
+                    const uint64_t entity_id, const account_name authority) {
+            switch(who) {
+                case controls::arbitrator: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::claimant: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::respondent: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+
+        bool add(controls::Item what, controls::Entity where, const account_name owner,
                  const uint64_t item_id_to_add, const uint64_t arbcase_id,
                  const account_name authority) {
             switch(what) {
+                case controls::document: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::transaction: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+
+        bool remove(controls::Item what, controls::Entity where, const account_name owner,
+                    const uint64_t item_id_to_remove, const uint64_t arbcase_id,
+                    const account_name authority) {
+            switch(what) {
                 case controls::document:
                     switch(where) {
-                        case controls::arbcase:
-                            break;
-                        case controls::claim:
-                            break;
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
                     }
-                    break;
-                case controls::transaction:
+                case controls::transaction: {
                     switch(where) {
-                        case controls::arbcase:
-                            break;
-                        case controls::claim:
-                            break;
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
                     }
-                    break;
+                }
+                default: {
+                    return false;
+                }
             }
         }
 
-        void remove(controls::Item what, controls::Entity where, const account_name owner,
-                 const uint64_t item_id_to_remove, const uint64_t arbcase_id,
-                 const account_name authority) {
+        bool open(controls::Entity what, const account_name authority, uint64_t claim_id = 0) {
             switch(what) {
-                case controls::document:
+                case controls::arbcase: {
+
+                }
+                case controls::claim: {
+
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+
+        bool close(controls::Entity what, const account_name authority, uint64_t entity_id) {
+            switch(what) {
+                case controls::arbcase: {
+
+                }
+                case controls::claim: {
+
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+
+        bool set(controls::Monies what, controls::Entity where, asset amount,
+                 const account_name authority, const uint64_t item_id,
+                 const uint64_t entity_id) {
+            switch(what) {
+                case controls::fee: {
                     switch(where) {
-                        case controls::arbcase:
-                            break;
-                        case controls::claim:
-                            break;
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
                     }
-                    break;
-                case controls::transaction:
+                }
+                case controls::bond: {
                     switch(where) {
-                        case controls::arbcase:
-                            break;
-                        case controls::claim:
-                            break;
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
                     }
-                    break;
+                }
+                case controls::bondowed: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
             }
         }
 
-        void open(controls::Entity what, const account_name authority, uint64_t claim_id = 0) {
+        bool set(controls::Monies what, asset amount, const account_name authority) {
             switch(what) {
-                case controls::arbcase:
-                case controls::claim:
+                case controls::submittalfee: {
+                }
+                default: {
+                    return false;
+                }
             }
         }
 
-        void close(controls::Entity what, const account_name authority, uint64_t entity_id) {
+        bool pay(controls::Monies what, controls::Entity where, asset amount,
+                 const account_name who, const uint64_t entity_id) {
             switch(what) {
-                case controls::arbcase:
-                    break;
-                case controls::claim:
-                    break;
+                case controls::fee: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::bondowed: {
+                    switch(where) {
+                        case controls::arbcase: {
+                        }
+                        case controls::claim: {
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
             }
         }
-
-        void set(controls::Monies what, asset amount, const account_name authority,
-                 const uint64_t entity_id = 0) {
+    
+        bool pay(controls::Monies what, asset amount, const account_name who) {
             switch(what) {
-                case controls::fee:
-                    break;
-                case controls::bond:
-                    break;
-                case controls::submittalfee:
-                    break;
-            }
-        }
+                case controls::submittalfee: {
 
-        void pay(controls::Monies what, asset amount, const account_name who,
-                 const uint64_t entity_id = 0) {
-            switch(what) {
-                case controls::fee:
-                    break;
-                case controls::bond:
-                    break;
-                case controls::submittalfee:
-                    break;
+                }
+                default: {
+                    return false;
+                }
             }
         }
 
@@ -411,8 +616,8 @@ class arbitration : public eosio::contract {
         };
         typedef eosio::multi_index< N(bondowed), bondowed > bondowed_index;
 
-        //@abi table arbcasefee i64
-        struct arbcasefee {
+        //@abi table fee i64
+        struct fee {
             uint64_t id;
             asset fee;
             bool current = false;
@@ -420,12 +625,12 @@ class arbitration : public eosio::contract {
             bool by_current() const { return current; }
             EOSLIB_SERIALIZE( transaction, (id)(fee)(bond) )
         };
-        typedef eosio::multi_index< N(arbcasefee), arbcasefee,
-            indexed_by< N(byowner), const_mem_fun<arbcasefee, bool, &arbcasefee::by_current> >
-            > arbcasefee_index;
+        typedef eosio::multi_index< N(fee), fee,
+            indexed_by< N(byowner), const_mem_fun<fee, bool, &fee::by_current> >
+            > fee_index;
 
-        //@abi table arbcasebond i64
-        struct arbcasebond {
+        //@abi table bond i64
+        struct bond {
             uint64_t id;
             asset bond;
             bool current = false;
@@ -433,9 +638,9 @@ class arbitration : public eosio::contract {
             bool by_current() const { return current; }
             EOSLIB_SERIALIZE( transaction, (id)(fee)(bond) )
         };
-        typedef eosio::multi_index< N(arbcasebond), arbcasebond,
-            indexed_by< N(byowner), const_mem_fun<arbcasebond, bool, &arbcasebond::by_current> >
-            > arbcasebond_index;
+        typedef eosio::multi_index< N(bond), bond,
+            indexed_by< N(byowner), const_mem_fun<bond, bool, &bond::by_current> >
+            > bond_index;
 
         //@abi table submittalfee i64
         struct submittalfee {
