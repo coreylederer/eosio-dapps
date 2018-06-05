@@ -446,53 +446,13 @@ class arbitration : public eosio::contract {
         typedef eosio::singleton< N(submittalfee), submittalfee > submittalfee_index;
 
         typedef uint64_t id;
-        typedef eosio::singleton<N(entityid), id>  entity_id_index;
-        typedef eosio::singleton<N(documentid), id>  document_id_index;
-        typedef eosio::singleton<N(transactionid), id>  transaction_id_index;
-        typedef eosio::singleton<N(bondpaymentid), id>  bondpayment_id_index;
-        typedef eosio::singleton<N(arbcasefeeid), id>  arbcasefee_id_index;
-        typedef eosio::singleton<N(arbcasebondid), id>  arbcasebond_id_index;
+        typedef eosio::singleton<N(indexid), id>  index_id_index;
 
-        id next_entity_id(){
-            entity_id_index last_entity_id(_self, _self);
-            id lentityid = last_entity_id.exists() ? last_entity_id.get() + 1 : 0;
-            last_entity_id.set(lentityid,_self);
-            return lentityid;
-        }
-
-        id next_document_id(){
-            document_id_index last_document_id(_self, _self);
-            id ldocumentid = last_document_id.exists() ? last_document_id.get() + 1 : 0;
-            last_document_id.set(ldocumentid,_self);
-            return ldocumentid;
-        }
-
-        id next_transaction_id(){
-            transaction_id_index last_transaction_id(_self, _self);
-            id ltransactionid = last_transaction_id.exists() ? last_transaction_id.get() + 1 : 0;
-            last_transaction_id.set(ltransactionid,_self);
-            return ltransactionid;
-        }
-
-        id next_bondpayment_id(){
-            bondpayment_id_index last_bondpayment_id(_self, _self);
-            id lbondpaymentid = last_bondpayment_id.exists() ? last_bondpayment_id.get() + 1 : 0;
-            last_bondpayment_id.set(lbondpaymentid,_self);
-            return lbondpaymentid;
-        }
-
-        id next_arbcasefee_id(){
-            arbcasefee_id_index last_arbcasefee_id(_self, _self);
-            id larbcasefeeid = last_arbcasefee_id.exists() ? last_arbcasefee_id.get() + 1 : 0;
-            last_arbcasefee_id.set(larbcasefeeid,_self);
-            return larbcasefeeid;
-        }
-
-        id next_arbcasebond_id(){
-            arbcasebond_id_index last_arbcasebond_id(_self, _self);
-            id larbcasebondid = last_arbcasebond_id.exists() ? last_arbcasebond_id.get() + 1 : 0;
-            last_arbcasebond_id.set(larbcasebondid,_self);
-            return larbcasebondid;
+        id next_index_id(){
+            index_id_index last_index_id(_self, _self);
+            id lindexid = last_index_id.exists() ? last_index_id.get() + 1 : 0;
+            last_index_id.set(lindexid,_self);
+            return lindexid;
         }
 };
 
