@@ -183,13 +183,16 @@ class arbitration : public eosio::contract {
         }
 
         bool add(controls::Person who, controls::Entity where, const account_name person_to_add,
-                 const uint64_t entity_id, const account_name authority) {
+                 const uint64_t entity_id, const account_name payer) {
             switch(who) {
                 case controls::arbitrator: {
                     switch(where) {
                         case controls::arbcase: {
-                        }
-                        case controls::claim: {
+                            arbitrator_index arbitrators(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            arbitrators.emplace(payer, [&](auto& arbtrtr) {
+                                arbtrtr.id = person_to_add;
+                            });
+                            return true;
                         }
                         default: {
                             return false;
@@ -199,8 +202,18 @@ class arbitration : public eosio::contract {
                 case controls::claimant: {
                     switch(where) {
                         case controls::arbcase: {
+                            claimant_index claimants(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            claimants.emplace(payer, [&](auto& clmnt) {
+                                clmnt.id = person_to_add;
+                            });
+                            return true;
                         }
                         case controls::claim: {
+                            claimant_index claimants(_self, entity_id); // entity_id is a claim id being used as the scope
+                            claimants.emplace(payer, [&](auto& clmnt) {
+                                clmnt.id = person_to_add;
+                            });
+                            return true;
                         }
                         default: {
                             return false;
@@ -210,8 +223,18 @@ class arbitration : public eosio::contract {
                 case controls::respondent: {
                     switch(where) {
                         case controls::arbcase: {
+                            respondent_index respondents(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            respondents.emplace(payer, [&](auto& rspndnt) {
+                                rspndnt.id = person_to_add;
+                            });
+                            return true;
                         }
                         case controls::claim: {
+                            respondent_index respondents(_self, entity_id); // entity_id is a claim id being used as the scope
+                            respondents.emplace(payer, [&](auto& rspndnt) {
+                                rspndnt.id = person_to_add;
+                            });
+                            return true;
                         }
                         default: {
                             return false;
@@ -225,13 +248,15 @@ class arbitration : public eosio::contract {
         }
 
         bool remove(controls::Person who, controls::Entity where, const account_name person_to_remove,
-                    const uint64_t entity_id, const account_name authority) {
+                    const uint64_t entity_id) {
             switch(who) {
                 case controls::arbitrator: {
                     switch(where) {
                         case controls::arbcase: {
-                        }
-                        case controls::claim: {
+                            arbitrator_index arbitrators(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            auto arbitrators_itr = arbitrators.find(person_to_remove);
+                            arbitrators.erase(arbitrators_itr);
+                            return true;
                         }
                         default: {
                             return false;
@@ -241,8 +266,16 @@ class arbitration : public eosio::contract {
                 case controls::claimant: {
                     switch(where) {
                         case controls::arbcase: {
+                            claimant_index claimants(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            auto claimants_itr = claimants.find(person_to_remove);
+                            claimants.erase(claimants_itr);
+                            return true;
                         }
                         case controls::claim: {
+                            claimant_index claimants(_self, entity_id); // entity_id is a claim id being used as the scope
+                            auto claimants_itr = claimants.find(person_to_remove);
+                            claimants.erase(claimants_itr);
+                            return true;
                         }
                         default: {
                             return false;
@@ -252,8 +285,16 @@ class arbitration : public eosio::contract {
                 case controls::respondent: {
                     switch(where) {
                         case controls::arbcase: {
+                            respondent_index respondents(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            auto respondents_itr = respondents.find(person_to_remove);
+                            respondents.erase(respondents_itr);
+                            return true;
                         }
                         case controls::claim: {
+                            respondent_index respondents(_self, entity_id); // entity_id is a claim id being used as the scope
+                            auto respondents_itr = respondents.find(person_to_remove);
+                            respondents.erase(respondents_itr);
+                            return true;
                         }
                         default: {
                             return false;
@@ -266,15 +307,33 @@ class arbitration : public eosio::contract {
             }
         }
 
-        bool add(controls::Item what, controls::Entity where, const account_name owner,
-                 const uint64_t item_id_to_add, const uint64_t arbcase_id,
-                 const account_name authority) {
+        bool add(controls::Item what, controls::Entity where, const uint64_t item_id_to_add,
+                 const account_name owner, const string description, string link,
+                 const checksum256 hoc_or_txid, const uint64_t entity_id, const account_name payer) {
             switch(what) {
                 case controls::document: {
                     switch(where) {
                         case controls::arbcase: {
+                            document_index documents(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            documents.emplace(payer, [&](auto& doc) {
+                                doc.id = item_id_to_add;
+                                doc.owner = owner;
+                                doc.description = description;
+                                doc.link = link;
+                                doc.hash_of_contents = hoc_or_txid;
+                            });
+                            return true;
                         }
                         case controls::claim: {
+                            document_index documents(_self, entity_id); // entity_id is a claim id being used as the scope
+                            documents.emplace(payer, [&](auto& doc) {
+                                doc.id = item_id_to_add;
+                                doc.owner = owner;
+                                doc.description = description;
+                                doc.link = link;
+                                doc.hash_of_contents = hoc_or_txid;
+                            });
+                            return true;
                         }
                         default: {
                             return false;
@@ -284,8 +343,26 @@ class arbitration : public eosio::contract {
                 case controls::transaction: {
                     switch(where) {
                         case controls::arbcase: {
+                            transaction_index transactions(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            transactions.emplace(payer, [&](auto& trans) {
+                                trans.id = item_id_to_add;
+                                trans.owner = owner;
+                                trans.description = description;
+                                trans.link = link;
+                                trans.tx_id = hoc_or_txid;
+                            });
+                            return true;
                         }
                         case controls::claim: {
+                            transaction_index transactions(_self, entity_id); // entity_id is a claim id being used as the scope
+                            transactions.emplace(payer, [&](auto& trans) {
+                                trans.id = item_id_to_add;
+                                trans.owner = owner;
+                                trans.description = description;
+                                trans.link = link;
+                                trans.tx_id = hoc_or_txid;
+                            });
+                            return true;
                         }
                         default: {
                             return false;
@@ -298,15 +375,22 @@ class arbitration : public eosio::contract {
             }
         }
 
-        bool remove(controls::Item what, controls::Entity where, const account_name owner,
-                    const uint64_t item_id_to_remove, const uint64_t arbcase_id,
-                    const account_name authority) {
+        bool remove(controls::Item what, controls::Entity where,
+                    const uint64_t item_id_to_remove, const uint64_t entity_id) {
             switch(what) {
                 case controls::document:
                     switch(where) {
                         case controls::arbcase: {
+                            document_index documents(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            auto documents_itr = documents.find(item_id_to_remove);
+                            documents.erase(documents_itr);
+                            return true;
                         }
                         case controls::claim: {
+                            document_index documents(_self, entity_id); // entity_id is a claim id being used as the scope
+                            auto documents_itr = documents.find(item_id_to_remove);
+                            documents.erase(documents_itr);
+                            return true;
                         }
                         default: {
                             return false;
@@ -315,8 +399,16 @@ class arbitration : public eosio::contract {
                 case controls::transaction: {
                     switch(where) {
                         case controls::arbcase: {
+                            transaction_index transactions(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            auto transactions_itr = transactions.find(item_id_to_remove);
+                            transactions.erase(transactions_itr);
+                            return true;
                         }
                         case controls::claim: {
+                            transaction_index transactions(_self, entity_id); // entity_id is a claim id being used as the scope
+                            auto transactions_itr = transactions.find(item_id_to_remove);
+                            transactions.erase(transactions_itr);
+                            return true;
                         }
                         default: {
                             return false;
@@ -329,7 +421,29 @@ class arbitration : public eosio::contract {
             }
         }
 
-        bool open(controls::Entity what, const account_name authority, uint64_t claim_id = 0) {
+        bool open(controls::Entity what, const uint64_t entity_id, const account_name payer) {
+            switch(what) {
+                case controls::arbcase: {
+                    arbcase_index arbcases(_self, _self);
+                    arbcases.emplace(payer, [&](auto& arbcs) {
+                        arbcs.id = entity_id;
+                    });
+                    return true;
+                }
+                case controls::claim: {
+                    claim_index claims(_self, _self);
+                    claims.emplace(payer, [&](auto& clm) {
+                        clm.id = entity_id;
+                    });
+                    return true;
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+
+        bool close(controls::Entity what, const account_name payer, uint64_t entity_id) {
             switch(what) {
                 case controls::arbcase: {
 
@@ -343,18 +457,14 @@ class arbitration : public eosio::contract {
             }
         }
 
-        bool close(controls::Entity what, const account_name authority, uint64_t entity_id) {
-            switch(what) {
-                case controls::arbcase: {
+        bool transfer_docs(const uint64_t claim_id, const uint64_t arbcase_id,
+                              const account_name payer) {
 
-                }
-                case controls::claim: {
+        }
 
-                }
-                default: {
-                    return false;
-                }
-            }
+        bool transfer_txs(const uint64_t claim_id, const uint64_t arbcase_id,
+                              const account_name payer) {
+
         }
 
         bool set(controls::Monies what, controls::Entity where, asset amount,
