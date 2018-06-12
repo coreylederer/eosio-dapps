@@ -632,6 +632,46 @@ class arbitration : public eosio::contract {
 
         }
 
+        //@abit action
+        void setbond() {
+
+        }
+
+        //@abit action
+        void setfee() {
+
+        }
+
+        //@abit action
+        void setsubfee() {
+
+        }
+
+        //@abi action
+        void setbondowed() {
+
+        }
+
+        //@abit action
+        void paybond() {
+
+        }
+
+        //@abit action
+        void payfee() {
+
+        }
+
+        //@abit action
+        void paysubfee() {
+
+        }
+
+        //@abi action
+        void paybondowed() {
+            
+        }
+
     private:
         //@abi table claim i64
         struct claim {
