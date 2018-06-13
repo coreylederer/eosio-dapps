@@ -15,7 +15,7 @@ using std::string;
 namespace controls {
     enum Monies {bond, fee, submittalfee, bondowed};
     enum Person {arbitrator, claimant, respondent};
-    enum Item   {document, transaction};
+    enum Item   {document, rejection, transaction};
     enum Entity {arbcase, claim};
 }
 
@@ -116,6 +116,23 @@ class arbitration : public eosio::contract {
                         }
                     }
                 }
+                case controls::rejection: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            rejection_index rejections(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            auto rejections_itr = rejections.find(item_id);
+                            return rejections_itr != rejections.end();
+                        }
+                        case controls::claim: {
+                            rejection_index rejections(_self, entity_id); // entity_id is a claim id being used as scope
+                            auto rejections_itr = rejections.find(item_id);
+                            return rejections_itr != rejections.end();
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
                 case controls::transaction: {
                     switch(where) {
                         case controls::arbcase: {
@@ -145,14 +162,14 @@ class arbitration : public eosio::contract {
                 case controls::bond: {
                     switch(where) {
                         case controls::arbcase: {
-                            document_index bond(_self, entity_id); // entity_id is an arbcase id being used as scope
-                            auto bond_itr = bond.find(item_id);
-                            return bond_itr != bond.end();
+                            bond_index bonds(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            auto bonds_itr = bonds.find(item_id);
+                            return bonds_itr != bonds.end();
                         }
                         case controls::claim: {
-                            document_index bond(_self, entity_id); // entity_id is a claim id being used as scope
-                            auto bond_itr = bond.find(item_id);
-                            return bond_itr != bond.end();
+                            bond_index bonds(_self, entity_id); // entity_id is a claim id being used as scope
+                            auto bonds_itr = bonds.find(item_id);
+                            return bonds_itr != bonds.end();
                         }
                         default: {
                             return false;
@@ -162,14 +179,14 @@ class arbitration : public eosio::contract {
                 case controls::fee: {
                     switch(where) {
                         case controls::arbcase: {
-                            transaction_index fee(_self, entity_id); // entity_id is an arbcase id being used as scope
-                            auto fee_itr = fee.find(item_id);
-                            return fee_itr != fee.end();
+                            fee_index fees(_self, entity_id); // entity_id is an arbcase id being used as scope
+                            auto fees_itr = fees.find(item_id);
+                            return fees_itr != fees.end();
                         }
                         case controls::claim: {
-                            transaction_index fee(_self, entity_id); // entity_id is a claim id being used as scope
-                            auto fee_itr = fee.find(item_id);
-                            return fee_itr != fee.end();
+                            fee_index fees(_self, entity_id); // entity_id is a claim id being used as scope
+                            auto fees_itr = fees.find(item_id);
+                            return fees_itr != fees.end();
                         }
                         default: {
                             return false;
@@ -340,6 +357,35 @@ class arbitration : public eosio::contract {
                         }
                     }
                 }
+                case controls::rejection: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            rejection_index rejections(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            rejections.emplace(payer, [&](auto& doc) {
+                                doc.id = item_id_to_add;
+                                doc.owner = owner;
+                                doc.description = description;
+                                doc.link = link;
+                                doc.hash_of_contents = hoc_or_txid;
+                            });
+                            return true;
+                        }
+                        case controls::claim: {
+                            rejection_index rejections(_self, entity_id); // entity_id is a claim id being used as the scope
+                            rejections.emplace(payer, [&](auto& doc) {
+                                doc.id = item_id_to_add;
+                                doc.owner = owner;
+                                doc.description = description;
+                                doc.link = link;
+                                doc.hash_of_contents = hoc_or_txid;
+                            });
+                            return true;
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
                 case controls::transaction: {
                     switch(where) {
                         case controls::arbcase: {
@@ -378,7 +424,7 @@ class arbitration : public eosio::contract {
         bool remove(controls::Item what, controls::Entity where,
                     const uint64_t item_id_to_remove, const uint64_t entity_id) {
             switch(what) {
-                case controls::document:
+                case controls::document: {
                     switch(where) {
                         case controls::arbcase: {
                             document_index documents(_self, entity_id); // entity_id is an arbcase id being used as the scope
@@ -396,6 +442,26 @@ class arbitration : public eosio::contract {
                             return false;
                         }
                     }
+                }
+                case controls::rejection: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            rejection_index rejections(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            auto rejections_itr = rejections.find(item_id_to_remove);
+                            rejections.erase(rejections_itr);
+                            return true;
+                        }
+                        case controls::claim: {
+                            rejection_index rejections(_self, entity_id); // entity_id is a claim id being used as the scope
+                            auto rejections_itr = rejections.find(item_id_to_remove);
+                            rejections.erase(rejections_itr);
+                            return true;
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
                 case controls::transaction: {
                     switch(where) {
                         case controls::arbcase: {
@@ -408,6 +474,66 @@ class arbitration : public eosio::contract {
                             transaction_index transactions(_self, entity_id); // entity_id is a claim id being used as the scope
                             auto transactions_itr = transactions.find(item_id_to_remove);
                             transactions.erase(transactions_itr);
+                            return true;
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
+
+        bool add(controls::Monies what, controls::Entity where, const uint64_t item_id,
+                 const asset amount, const bool current, const uint64_t entity_id,
+                 const account_name payer) {
+            switch(what) {
+                case controls::bond: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            bond_index bonds(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            bonds.emplace(payer, [&](auto& bnd) {
+                                bnd.id = item_id;
+                                bnd.bond = amount;
+                                bnd.current = current;
+                            });
+                            return true;
+                        }
+                        case controls::claim: {
+                            bond_index bonds(_self, entity_id); // entity_id is a claim id being used as the scope
+                            bonds.emplace(payer, [&](auto& bnd) {
+                                bnd.id = item_id;
+                                bnd.bond = amount;
+                                bnd.current = current;
+                            });
+                            return true;
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+                case controls::fee: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            fee_index fees(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            fees.emplace(payer, [&](auto& bnd) {
+                                bnd.id = item_id;
+                                bnd.fee = amount;
+                                bnd.current = current;
+                            });
+                            return true;
+                        }
+                        case controls::claim: {
+                            fee_index fees(_self, entity_id); // entity_id is a claim id being used as the scope
+                            fees.emplace(payer, [&](auto& f) {
+                                f.id = item_id;
+                                f.fee = amount;
+                                f.current = current;
+                            });
                             return true;
                         }
                         default: {
@@ -443,13 +569,47 @@ class arbitration : public eosio::contract {
             }
         }
 
-        bool close(controls::Entity what, const account_name payer, uint64_t entity_id) {
+        bool close(controls::Entity what, uint64_t entity_id) {
             switch(what) {
                 case controls::arbcase: {
-
+                    arbcase_index arbcases(_self, _self);
+                    auto arbcases_itr = arbcases.find(entity_id);
+                    arbcases.modify(arbcases_itr, 0, [&](auto& arbcs) {
+                        arbcs.closed = true;
+                    });
+                    return true;
                 }
                 case controls::claim: {
+                    claim_index claims(_self, _self);
+                    auto claims_itr = claims.find(entity_id);
+                    claims.modify(claims_itr, 0, [&](auto& clm) {
+                        clm.closed = true;
+                    });
+                    return true;
+                }
+                default: {
+                    return false;
+                }
+            }
+        }
 
+        bool reopen(controls::Entity what, uint64_t entity_id) {
+            switch(what) {
+                case controls::arbcase: {
+                    arbcase_index arbcases(_self, _self);
+                    auto arbcases_itr = arbcases.find(entity_id);
+                    arbcases.modify(arbcases_itr, 0, [&](auto& arbcs) {
+                        arbcs.closed = false;
+                    });
+                    return true;
+                }
+                case controls::claim: {
+                    claim_index claims(_self, _self);
+                    auto claims_itr = claims.find(entity_id);
+                    claims.modify(claims_itr, 0, [&](auto& clm) {
+                        clm.closed = false;
+                    });
+                    return true;
                 }
                 default: {
                     return false;
@@ -458,24 +618,104 @@ class arbitration : public eosio::contract {
         }
 
         bool transfer_docs(const uint64_t claim_id, const uint64_t arbcase_id,
-                              const account_name payer) {
-
+                           const account_name payer) {
+            document_index documents(_self, claim_id);
+            for(const auto& docs : documents) {
+                if(!add(controls::document, controls::arbcase, docs.id,
+                        docs.owner, docs.description, docs.link,
+                        docs.hash_of_contents, arbcase_id, payer)) {
+                            return false;
+                    }
+            }
+            return true;
         }
 
         bool transfer_txs(const uint64_t claim_id, const uint64_t arbcase_id,
-                              const account_name payer) {
-
+                          const account_name payer) {
+            transaction_index transactions(_self, claim_id);
+            for(const auto& trans : transactions) {
+                if(!add(controls::transaction, controls::arbcase, trans.id,
+                        trans.owner, trans.description,trans.link, trans.tx_id,
+                        arbcase_id, payer)) {
+                            return false;
+                    }
+            }            
+            return true;
         }
 
-        bool set(controls::Monies what, controls::Entity where, asset amount,
-                 const account_name authority, const uint64_t item_id,
+        bool transfer_fees(const uint64_t claim_id, const uint64_t arbcase_id,
+                           const account_name payer) {
+            fee_index fees(_self, claim_id);
+            for(const auto& f : fees) {
+                if(!add(controls::fee, controls::arbcase, f.id,
+                        f.fee, f.current, arbcase_id, payer)) {
+                            return false;
+                    }
+            }            
+            return true;
+        }
+
+        bool transfer_bonds(const uint64_t claim_id, const uint64_t arbcase_id,
+                           const account_name payer) {
+            bond_index bonds(_self, claim_id);
+            for(const auto& b : bonds) {
+                if(!add(controls::bond, controls::arbcase, b.id,
+                        b.bond, b.current, arbcase_id, payer)) {
+                            return false;
+                    }
+            }            
+            return true;
+        }
+
+        bool set(controls::Monies what, controls::Entity where, const asset amount,
+                 const account_name payer, const uint64_t item_id,
                  const uint64_t entity_id) {
             switch(what) {
                 case controls::fee: {
                     switch(where) {
                         case controls::arbcase: {
+                            fee_index fees(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            if (fees.end() == fees.begin()) {
+                                fees.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.fee = amount;
+                                    f.current = true;
+                                });
+                            } else {
+                                auto current_index = fees.get_index<N(bycurrent)>();
+                                auto currents_itr = current_index.find(true);
+                                fees.modify(currents_itr, 0, [&](auto& f) {
+                                    f.current = false;
+                                });
+                               fees.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.fee = amount;
+                                    f.current = true;
+                                });
+                            }
+                            return true;
                         }
                         case controls::claim: {
+                            fee_index fees(_self, entity_id); // entity_id is a claim id being used as the scope
+                            if (fees.end() == fees.begin()) {
+                                fees.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.fee = amount;
+                                    f.current = true;
+                                });
+                            } else {
+                                auto current_index = fees.get_index<N(bycurrent)>();
+                                auto currents_itr = current_index.find(true);
+                                fees.modify(currents_itr, 0, [&](auto& f) {
+                                    f.current = false;
+                                });
+                               fees.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.fee = amount;
+                                    f.current = true;
+                                });
+                            }
+                            return true;
                         }
                         default: {
                             return false;
@@ -485,19 +725,48 @@ class arbitration : public eosio::contract {
                 case controls::bond: {
                     switch(where) {
                         case controls::arbcase: {
+                            bond_index bonds(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            if (bonds.end() == bonds.begin()) {
+                                bonds.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.bond = amount;
+                                    f.current = true;
+                                });
+                            } else {
+                                auto current_index = bonds.get_index<N(bycurrent)>();
+                                auto currents_itr = current_index.find(true);
+                                bonds.modify(currents_itr, 0, [&](auto& f) {
+                                    f.current = false;
+                                });
+                               bonds.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.bond = amount;
+                                    f.current = true;
+                                });
+                            }
+                            return true;
                         }
                         case controls::claim: {
-                        }
-                        default: {
-                            return false;
-                        }
-                    }
-                }
-                case controls::bondowed: {
-                    switch(where) {
-                        case controls::arbcase: {
-                        }
-                        case controls::claim: {
+                            bond_index bonds(_self, entity_id); // entity_id is a claim id being used as the scope
+                            if (bonds.end() == bonds.begin()) {
+                                bonds.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.bond = amount;
+                                    f.current = true;
+                                });
+                            } else {
+                                auto current_index = bonds.get_index<N(bycurrent)>();
+                                auto currents_itr = current_index.find(true);
+                                bonds.modify(currents_itr, 0, [&](auto& f) {
+                                    f.current = false;
+                                });
+                               bonds.emplace(payer, [&](auto& f) {
+                                    f.id = item_id;
+                                    f.bond = amount;
+                                    f.current = true;
+                                });
+                            }
+                            return true;
                         }
                         default: {
                             return false;
@@ -510,9 +779,42 @@ class arbitration : public eosio::contract {
             }
         }
 
+        bool set(controls::Monies what, controls::Entity where, const asset amount,
+                 const account_name payer, const account_name id,
+                 const uint64_t entity_id) {
+            switch(what) {
+                case controls::bondowed: {
+                    switch(where) {
+                        case controls::arbcase: {
+                            bondowed_index bondsowed(_self, entity_id); // entity_id is an arbcase id being used as the scope
+                            bondsowed.emplace(payer, [&](auto& bo) {
+                                bo.id = id;
+                                bo.amount = amount;
+                            });
+                            return true;
+                        }
+                        case controls::claim: {
+                            bondowed_index bondsowed(_self, entity_id); // entity_id is a claim id being used as the scope
+                            bondsowed.emplace(payer, [&](auto& bo) {
+                                bo.id = id;
+                                bo.amount = amount;
+                            });
+                        }
+                        default: {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
         bool set(controls::Monies what, asset amount, const account_name authority) {
             switch(what) {
                 case controls::submittalfee: {
+                    submittalfee_index sf(_self,_self);
+                    submittalfee new_submittalfee{amount};
+                    sf.set(new_submittalfee,authority);
+                    return true;
                 }
                 default: {
                     return false;
@@ -555,6 +857,7 @@ class arbitration : public eosio::contract {
             switch(what) {
                 case controls::submittalfee: {
 
+                    return true;
                 }
                 default: {
                     return false;
@@ -676,16 +979,19 @@ class arbitration : public eosio::contract {
         //@abi table claim i64
         struct claim {
             uint64_t id;
+            bool closed = false;
+            bool rejected = false;
             uint64_t primary_key() const { return id; }
-            EOSLIB_SERIALIZE( claim, (id) )
+            EOSLIB_SERIALIZE( claim, (id)(closed)(rejected) )
         };
         typedef eosio::multi_index< N(claim), claim > claim_index;
 
         //@abi table arbcase i64
         struct arbcase {
             uint64_t id;
+            bool closed = false;
             uint64_t primary_key() const { return id; }
-            EOSLIB_SERIALIZE( arbcase, (id) )
+            EOSLIB_SERIALIZE( arbcase, (id)(closed) )
         };
         typedef eosio::multi_index< N(arbcase), arbcase > arbcase_index;
 
@@ -727,6 +1033,19 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(document), document,
             indexed_by< N(byowner), const_mem_fun<document, account_name, &document::by_owner> >
             > document_index;
+
+        //@abi table rejection i64
+        struct rejection {
+            uint64_t id;
+            account_name owner;
+            string description;
+            string link;
+            checksum256 hash_of_contents;
+            uint64_t primary_key() const { return id; }
+            account_name by_owner() const { return owner; }
+            EOSLIB_SERIALIZE( rejection, (id)(owner)(description)(link)(hash_of_contents) )
+        };
+        typedef eosio::multi_index< N(rejection), rejection > rejection_index;
 
         //@abi table transaction i64
         struct transaction {
@@ -770,26 +1089,26 @@ class arbitration : public eosio::contract {
         struct fee {
             uint64_t id;
             asset fee;
-            bool current = false;
+            bool current;
             uint64_t primary_key() const { return id; }
             bool by_current() const { return current; }
-            EOSLIB_SERIALIZE( transaction, (id)(fee)(bond) )
+            EOSLIB_SERIALIZE( transaction, (id)(fee)(current) )
         };
         typedef eosio::multi_index< N(fee), fee,
-            indexed_by< N(byowner), const_mem_fun<fee, bool, &fee::by_current> >
+            indexed_by< N(bycurrent), const_mem_fun<fee, bool, &fee::by_current> >
             > fee_index;
 
         //@abi table bond i64
         struct bond {
             uint64_t id;
             asset bond;
-            bool current = false;
+            bool current;
             uint64_t primary_key() const { return id; }
             bool by_current() const { return current; }
-            EOSLIB_SERIALIZE( transaction, (id)(fee)(bond) )
+            EOSLIB_SERIALIZE( transaction, (id)(bond)(current) )
         };
         typedef eosio::multi_index< N(bond), bond,
-            indexed_by< N(byowner), const_mem_fun<bond, bool, &bond::by_current> >
+            indexed_by< N(bycurrent), const_mem_fun<bond, bool, &bond::by_current> >
             > bond_index;
 
         //@abi table submittalfee i64
