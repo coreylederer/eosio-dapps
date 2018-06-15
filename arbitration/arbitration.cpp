@@ -30,7 +30,8 @@ class arbitration : public eosio::contract {
 
         /**
          * arbcase + claim + document + transaction + rejection + 
-         * bond + fee + payment + arbitrator + claimant + respondent
+         * bond + fee + payment + paymentdue + arbitrator + 
+         * claimant + respondent
         */
         template <typename T, typename U, typename G>
         bool exists(G entity_id, U item_id) {
@@ -44,42 +45,44 @@ class arbitration : public eosio::contract {
         template <typename T, typename U, typename G>
         bool add(G entity_id, U item_id, const account_name payer) {
             T table(_self, entity_id);
-            table.emplace(payer, [&](auto& person) {
-                person.id = item_id;
+            table.emplace(payer, [&](auto& entity) {
+                entity.id = item_id;
             });
             return true;
         }
 
         /**
-         * document + transaction + rejection
+         * document + rejection
          */ 
         template <typename T>
         bool add(const uint64_t entity_id, const uint64_t item_id,
-                 const account_name owner, const string description, string link,
-                 const checksum256 contents, const account_name payer) {
+                 const account_name owner, const string description, const string link,
+                 const checksum256 hash_of_contents, const account_name payer) {
             T table(_self, entity_id);
-            table.emplace(payer, [&](auto& person) {
-                doc.id = item_id;
-                doc.owner = owner;
-                doc.description = description;
-                doc.link = link;
-                doc.contents = contents;
+            table.emplace(payer, [&](auto& item) {
+                item.id = item_id;
+                item.owner = owner;
+                item.description = description;
+                item.link = link;
+                item.hash_of_contents = hash_of_contents;
             });
             return true;
         }
 
-        /**
-         * bond + fee
+       /**
+         * transaction
          */ 
         template <typename T>
-        bool add(const uint64_t entity_id, const uint64_t item_id,
-                 const asset amount, const uint8_t current,
+        bool add(const uint64_t entity_id, const uint64_t item_id, const account_name owner,
+                 const string description, const string link, const checksum256 tx_id,
                  const account_name payer) {
             T table(_self, entity_id);
-            table.emplace(payer, [&](auto& person) {
-                doc.id = item_id;
-                doc.amount = amount;
-                doc.current = current;
+            table.emplace(payer, [&](auto& item) {
+                item.id = item_id;
+                item.owner = owner;
+                item.description = description;
+                item.link = link;
+                item.tx_id = tx_id;
             });
             return true;
         }
@@ -101,13 +104,44 @@ class arbitration : public eosio::contract {
         }
 
         /**
+         * paymentdue
+         */ 
+        template <typename T>
+        bool add(const uint64_t entity_id, const account_name item_id,
+                 const asset amount, const account_name payer) {
+            T table(_self, entity_id);
+            table.emplace(payer, [&](auto& pymntdue) {
+                pymntdue.id = item_id;
+                pymntdue.amount = amount;
+            });
+            return true;
+        }
+
+        /**
+         * bond + fee
+         */ 
+        template <typename T>
+        bool add(const uint64_t entity_id, const uint64_t item_id,
+                 const asset amount, const uint8_t current,
+                 const account_name payer) {
+            T table(_self, entity_id);
+            table.emplace(payer, [&](auto& item) {
+                item.id = item_id;
+                item.amount = amount;
+                item.current = current;
+            });
+            return true;
+        }
+
+        /**
          * arbcase + claim + document + transaction + rejection + 
-         * bond + fee + payment + arbitrator + claimant + respondent
+         * bond + fee + payment + paymentdue + arbitrator + claimant + 
+         * respondent
         */
         template <typename T, typename U, typename G>
-        bool remove(G entity_id, U item) {
+        bool remove(G entity_id, U item_id) {
             T table(_self, entity_id); 
-            auto itr = table.find(item);
+            auto itr = table.find(item_id);
             table.erase(itr);
             return true;
         }
@@ -151,23 +185,7 @@ class arbitration : public eosio::contract {
         }
 
         /**
-         * document + transaction
-         */
-        template <typename T>
-        bool transfer_items(const uint64_t claim_id, const uint64_t arbcase_id,
-                            const account_name payer) {
-            T table(_self, claim_id);
-            for(const auto& item : table) {
-                if(!add<T>(arbcase_id, item.id, item.owner, item.description,
-                    item.link, item.contents, payer)) {
-                        return false;
-                }
-            }
-            return true;
-        }
-
-        /**
-         * bond + fee + payment
+         * document + transaction + rejection + bond + fee + payment + paymentdue
          */
         template <typename T>
         bool transfer_items(const uint64_t claim_id, const uint64_t arbcase_id,
@@ -176,15 +194,37 @@ class arbitration : public eosio::contract {
             if (payment_index == typeid(T)) {
                 for(const auto& item : table) {
                     if(!add<T>(arbcase_id, item.id, item.owner, item.amount, payer)) {
-                            return false;
+                        return false;
+                    }
+                }
+            } else if (paymentdue_index == typeid(T)) {
+                for(const auto& item : table) {
+                    if(!add<T>(arbcase_id, item.id, item.amount, payer)) {
+                        return false;
+                    }
+                }
+            } else if (document_index == typeid(T) || rejection_index == typeid(T)) {
+                for(const auto& item : table) {
+                    if(!add<T>(arbcase_id, item.id, item.owner, item.description,
+                            item.link, item.hash_of_contents, payer)) {
+                                return false;
+                    }
+                }
+            } else if (transaction_index == typeid(T)) {
+                for(const auto& item : table) {
+                    if(!add<T>(arbcase_id, item.id, item.owner, item.description,
+                            item.link, item.tx_id, payer)) {
+                        return false;
+                    }
+                }
+            } else if (bond_index == typeid(T) || fee_index == typeid(T)) {
+                for(const auto& item : table) {
+                    if(!add<T>(arbcase_id, item.id, item.amount, item.current, payer)) {
+                        return false;
                     }
                 }
             } else {
-                for(const auto& item : table) {
-                    if(!add<T>(arbcase_id, item.id, item.amount, item.current, payer)) {
-                            return false;
-                    }
-                }
+                return false;
             }
             return true;
         }
@@ -193,7 +233,7 @@ class arbitration : public eosio::contract {
          * bond + fee
          */
         template <typename T>
-        bool flip_current(const uint64_t entity_id) {
+        void flip_current(const uint64_t entity_id) {
             T table(_self, entity_id);
             if (table.end() != table.begin()) {
                 auto current_index = table.get_index<N(bycurrent)>();
@@ -202,10 +242,11 @@ class arbitration : public eosio::contract {
                     f.current = 0;
                 });
             }
-            return true;
         }
 
-
+        /**
+         * submittalfee
+         */
         bool setsf(const asset amount, const account_name authority) {
             submittalfee_index sf(_self,_self);
             submittalfee new_submittalfee{amount};
@@ -373,10 +414,10 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            checksum256 contents;
+            checksum256 hash_of_contents;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( document, (id)(owner)(description)(link)(contents) )
+            EOSLIB_SERIALIZE( document, (id)(owner)(description)(link)(hash_of_contents) )
         };
         typedef eosio::multi_index< N(document), document,
             indexed_by< N(byowner), const_mem_fun<document, account_name, &document::by_owner> >
@@ -388,10 +429,10 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            checksum256 contents;
+            checksum256 hash_of_contents;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( rejection, (id)(owner)(description)(link)(contents) )
+            EOSLIB_SERIALIZE( rejection, (id)(owner)(description)(link)(hash_of_contents) )
         };
         typedef eosio::multi_index< N(rejection), rejection > rejection_index;
 
@@ -401,10 +442,10 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            checksum256 contents;
+            checksum256 tx_id;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( transaction, (id)(owner)(description)(link)(contents) )
+            EOSLIB_SERIALIZE( transaction, (id)(owner)(description)(link)(tx_id) )
         };
         typedef eosio::multi_index< N(transaction), transaction,
             indexed_by< N(byowner), const_mem_fun<transaction, account_name, &transaction::by_owner> >
@@ -422,6 +463,15 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(payment), payment,
             indexed_by< N(byowner), const_mem_fun<payment, account_name, &payment::by_owner> >
             > payment_index; 
+
+        //@abi table paymentdue i64
+        struct paymentdue {
+            account_name id;
+            asset amount;
+            uint64_t primary_key() const { return id; }
+            EOSLIB_SERIALIZE( transaction, (id)(owner)(amount) )
+        };
+        typedef eosio::multi_index< N(paymentdue), paymentdue > paymentdue_index; 
 
         //@abi table fee i64
         struct fee {
