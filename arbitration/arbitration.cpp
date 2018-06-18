@@ -12,16 +12,19 @@ using eosio::print;
 using eosio::asset;
 using std::string;
 
-namespace controls {
-    enum Monies {bond, fee, submittalfee, bondowed};
-    enum Person {arbitrator, claimant, respondent};
-    enum Item   {document, rejection, transaction};
-    enum Entity {arbcase, claim};
-}
-
 class arbitration : public eosio::contract {
     public:
         explicit arbitration(action_name self) : contract(self) {}
+
+        /**
+         * Converts a unint64_t to a name. The returned value is used
+         * as the scope of a multi index table.
+         */
+        eosio::name toname(uint64_t value) {
+            eosio::name entity_id;
+            entity_id.value = value;
+            return entity_id;
+        }
 
         /**
          * In the functions below, entity_id can either be an arbcase id, a
@@ -36,8 +39,13 @@ class arbitration : public eosio::contract {
         */
         template <typename T, typename G, typename U>
         bool exists(G entity_id, U item_id) {
-            T table(_self, entity_id);
-            return table.find(item_id) != table.end();
+            if (typeid(G) == typeid(account_name)) {
+                T table(_self, entity_id);
+                return table.find(item_id) != table.end();
+            } else {
+                T table(_self, toname(entity_id));
+                return table.find(item_id) != table.end();
+            }
         }
 
         /**
@@ -45,10 +53,17 @@ class arbitration : public eosio::contract {
          */
         template <typename T, typename G, typename U>
         void add(G entity_id, U item_id, const account_name payer) {
-            T table(_self, entity_id);
-            table.emplace(payer, [&](auto& entity) {
-                entity.id = item_id;
-            });
+            if (typeid(G) == typeid(account_name)) {
+                T table(_self, entity_id);
+                table.emplace(payer, [&](auto& entity) {
+                    entity.id = item_id;
+                });
+            } else {
+                T table(_self, toname(entity_id));
+                table.emplace(payer, [&](auto& entity) {
+                    entity.id = item_id;
+                });
+            }
         }
 
         /**
@@ -58,7 +73,7 @@ class arbitration : public eosio::contract {
         bool add(const uint64_t entity_id, const uint64_t item_id,
                  const account_name owner, const string description, const string link,
                  const checksum256 hash_of_contents, const account_name payer) {
-            T table(_self, entity_id);
+            T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& item) {
                 item.id = item_id;
                 item.owner = owner;
@@ -76,7 +91,7 @@ class arbitration : public eosio::contract {
         bool add(const uint64_t entity_id, const uint64_t item_id, const account_name owner,
                  const string description, const string link, const checksum256 tx_id,
                  const account_name payer) {
-            T table(_self, entity_id);
+            T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& item) {
                 item.id = item_id;
                 item.owner = owner;
@@ -94,7 +109,7 @@ class arbitration : public eosio::contract {
         bool add(const uint64_t entity_id, const uint64_t item_id,
                  const account_name owner, const asset amount,
                  const account_name payer) {
-            T table(_self, entity_id);
+            T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& pymnt) {
                 pymnt.id = item_id;
                 pymnt.owner = owner;
@@ -109,7 +124,7 @@ class arbitration : public eosio::contract {
         template <typename T>
         bool add(const uint64_t entity_id, const account_name item_id,
                  const asset amount, const account_name payer) {
-            T table(_self, entity_id);
+            T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& pymntdue) {
                 pymntdue.id = item_id;
                 pymntdue.amount = amount;
@@ -124,7 +139,7 @@ class arbitration : public eosio::contract {
         bool add(const uint64_t entity_id, const uint64_t item_id,
                  const asset amount, const uint8_t current,
                  const account_name payer) {
-            T table(_self, entity_id);
+            T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& item) {
                 item.id = item_id;
                 item.amount = amount;
@@ -140,10 +155,17 @@ class arbitration : public eosio::contract {
         */
         template <typename T, typename G, typename U>
         bool remove(G entity_id, U item_id) {
-            T table(_self, entity_id); 
-            auto itr = table.find(item_id);
-            table.erase(itr);
-            return true;
+            if (typeid(G) == typeid(account_name)) {
+                T table(_self, entity_id); 
+                auto itr = table.find(item_id);
+                table.erase(itr);
+                return true;
+            } else {
+                T table(_self, toname(entity_id)); 
+                auto itr = table.find(item_id);
+                table.erase(itr);
+                return true;
+            }
         }
 
         /**
@@ -187,7 +209,7 @@ class arbitration : public eosio::contract {
         template <typename T>
         bool transfer_items(const uint64_t claim_id, const uint64_t arbcase_id,
                             const account_name payer) {
-            T table(_self, claim_id);
+            T table(_self, toname(claim_id));
             if (payment_index == typeid(T)) {
                 for(const auto& item : table) {
                     if(!add<T>(arbcase_id, item.id, item.owner, item.amount, payer)) {
@@ -231,7 +253,7 @@ class arbitration : public eosio::contract {
          */
         template <typename T>
         void flip_current(const uint64_t entity_id) {
-            T table(_self, entity_id);
+            T table(_self, toname(entity_id));
             if (table.end() != table.begin()) {
                 auto current_index = table.get_index<N(bycurrent)>();
                 auto currents_itr = current_index.find(1);
