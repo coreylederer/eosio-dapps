@@ -48,6 +48,46 @@ class arbitration : public eosio::contract {
             }
         }
 
+        bool is_arbcase(const uint64_t arbcase_id) {
+            return exists<arbcase_index, account_name, uint64_t>(_self, arbcase_id);
+        }
+
+        bool is_claim(const uint64_t claim_id) {
+            return exists<claim_index, account_name, uint64_t>(_self, claim_id);
+        }
+
+        bool is_arbitrator(const uint64_t entity_id, const account_name arb) {
+            return exists<arbitrator_index, uint64_t, account_name>(entity_id, arb);
+        }
+
+        bool is_claimant(const uint64_t entity_id, const account_name clmnt) {
+            return exists<claimant_index, uint64_t, account_name>(entity_id, clmnt);
+        }
+
+        bool is_respondent(const uint64_t entity_id, const account_name rspndnt) {
+            return exists<respondent_index, uint64_t, account_name>(entity_id, rspndnt);
+        }
+
+        bool is_document(const uint64_t entity_id, const uint64_t doc) {
+            return exists<document_index, uint64_t, uint64_t>(entity_id, doc);
+        }
+
+        bool is_rejection(const uint64_t entity_id, const uint64_t rej) {
+            return exists<rejection_index, uint64_t, uint64_t>(entity_id, rej);
+        }
+
+        bool is_transaction(const uint64_t entity_id, const uint64_t tx) {
+            return exists<transaction_index, uint64_t, uint64_t>(entity_id, tx);
+        }
+
+        template<typename T>
+        bool is_owner(const uint64_t entity_id, const uint64_t item_id,
+                      const account_name owner) {
+            T table(_self, toname(entity_id));
+            auto item = table.get(item_id);
+            return item.owner == owner;
+        }
+
         /**
          * arbcase + claim + arbitrator + claimant + respondent
          */
@@ -70,7 +110,7 @@ class arbitration : public eosio::contract {
          * document + rejection
          */ 
         template <typename T>
-        bool add(const uint64_t entity_id, const uint64_t item_id,
+        void add(const uint64_t entity_id, const uint64_t item_id,
                  const account_name owner, const string description, const string link,
                  const checksum256 hash_of_contents, const account_name payer) {
             T table(_self, toname(entity_id));
@@ -81,14 +121,13 @@ class arbitration : public eosio::contract {
                 item.link = link;
                 item.hash_of_contents = hash_of_contents;
             });
-            return true;
         }
 
        /**
          * transaction
          */ 
         template <typename T>
-        bool add(const uint64_t entity_id, const uint64_t item_id, const account_name owner,
+        void add(const uint64_t entity_id, const uint64_t item_id, const account_name owner,
                  const string description, const string link, const checksum256 tx_id,
                  const account_name payer) {
             T table(_self, toname(entity_id));
@@ -99,14 +138,13 @@ class arbitration : public eosio::contract {
                 item.link = link;
                 item.tx_id = tx_id;
             });
-            return true;
         }
 
         /**
          * payment
          */ 
         template <typename T>
-        bool add(const uint64_t entity_id, const uint64_t item_id,
+        void add(const uint64_t entity_id, const uint64_t item_id,
                  const account_name owner, const asset amount,
                  const account_name payer) {
             T table(_self, toname(entity_id));
@@ -115,28 +153,26 @@ class arbitration : public eosio::contract {
                 pymnt.owner = owner;
                 pymnt.amount = amount;
             });
-            return true;
         }
 
         /**
          * paymentdue
          */ 
         template <typename T>
-        bool add(const uint64_t entity_id, const account_name item_id,
+        void add(const uint64_t entity_id, const account_name item_id,
                  const asset amount, const account_name payer) {
             T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& pymntdue) {
                 pymntdue.id = item_id;
                 pymntdue.amount = amount;
             });
-            return true;
         }
 
         /**
          * bond + fee
          */ 
         template <typename T>
-        bool add(const uint64_t entity_id, const uint64_t item_id,
+        void add(const uint64_t entity_id, const uint64_t item_id,
                  const asset amount, const uint8_t current,
                  const account_name payer) {
             T table(_self, toname(entity_id));
@@ -145,7 +181,6 @@ class arbitration : public eosio::contract {
                 item.amount = amount;
                 item.current = current;
             });
-            return true;
         }
 
         /**
@@ -154,17 +189,15 @@ class arbitration : public eosio::contract {
          * respondent
         */
         template <typename T, typename G, typename U>
-        bool remove(G entity_id, U item_id) {
+        void remove(G entity_id, U item_id) {
             if (typeid(G) == typeid(account_name)) {
                 T table(_self, entity_id); 
                 auto itr = table.find(item_id);
                 table.erase(itr);
-                return true;
             } else {
                 T table(_self, toname(entity_id)); 
                 auto itr = table.find(item_id);
                 table.erase(itr);
-                return true;
             }
         }
 
@@ -207,45 +240,33 @@ class arbitration : public eosio::contract {
          * document + transaction + rejection + bond + fee + payment + paymentdue
          */
         template <typename T>
-        bool transfer_items(const uint64_t claim_id, const uint64_t arbcase_id,
+        void transfer_items(const uint64_t claim_id, const uint64_t arbcase_id,
                             const account_name payer) {
             T table(_self, toname(claim_id));
             if (payment_index == typeid(T)) {
                 for(const auto& item : table) {
-                    if(!add<T>(arbcase_id, item.id, item.owner, item.amount, payer)) {
-                        return false;
-                    }
+                    add<T>(arbcase_id, item.id, item.owner, item.amount, payer);
                 }
             } else if (paymentdue_index == typeid(T)) {
                 for(const auto& item : table) {
-                    if(!add<T>(arbcase_id, item.id, item.amount, payer)) {
-                        return false;
-                    }
+                    add<T>(arbcase_id, item.id, item.amount, payer);
                 }
             } else if (document_index == typeid(T)) {
                 for(const auto& item : table) {
-                    if(!add<T>(arbcase_id, item.id, item.owner, item.description,
-                            item.link, item.hash_of_contents, payer)) {
-                                return false;
-                    }
+                    add<T>(arbcase_id, item.id, item.owner, item.description,
+                           item.link, item.hash_of_contents, payer);
                 }
             } else if (transaction_index == typeid(T)) {
                 for(const auto& item : table) {
-                    if(!add<T>(arbcase_id, item.id, item.owner, item.description,
-                            item.link, item.tx_id, payer)) {
-                        return false;
+                    add<T>(arbcase_id, item.id, item.owner, item.description,
+                           item.link, item.tx_id, payer);
                     }
                 }
             } else if (bond_index == typeid(T) || fee_index == typeid(T)) {
                 for(const auto& item : table) {
-                    if(!add<T>(arbcase_id, item.id, item.amount, item.current, payer)) {
-                        return false;
-                    }
+                    add<T>(arbcase_id, item.id, item.amount, item.current, payer);
                 }
-            } else {
-                return false;
             }
-            return true;
         }
 
         /**
@@ -270,38 +291,30 @@ class arbitration : public eosio::contract {
             submittalfee_index sf(_self,_self);
             submittalfee new_submittalfee{amount};
             sf.set(new_submittalfee,authority);
-            return true;
         }
 
         //@abi action
         void opencase(const uint64_t claim_id, const account_name authority) {
-            eosio_assert(_self == authority,
-            "ERROR: Only ECAF can open a case.");
+            eosio_assert(_self == authority, "ERROR: Only ECAF can open a case.");
             require_auth(authority);
-            eosio_assert(exists<claim_index, account_name, uint64_t>(_self, claim_id),
-            "ERROR: Claim does not exist.");
+            eosio_assert(is_claim(claim_id), "ERROR: Claim does not exist.");
             const uint64_t arbcase_id = next_index_id();
             add<arbcase_index, account_name, uint64_t>(_self, arbcase_id, authority);
-            eosio_assert(exists<arbcase_index>(_self, arbcase_id),
+            eosio_assert(is_arbcase(arbcase_id),
             "ERROR: Something went wrong. The case could not be opened.");
-            eosio_assert(transfer_items<document_index>(claim_id, arbcase_id, authority),
-            "ERROR: Claim documents could not be transfered.");
-            eosio_assert(transfer_items<transaction_index>(claim_id, arbcase_id, authority),
-            "ERROR: Claim transactions could not be transfered.");
-            eosio_assert(transfer_items<bond_index>(claim_id, arbcase_id, authority),
-            "ERROR: Claim bonds could not be transfered.");
-            eosio_assert(transfer_items<fee_index>(claim_id, arbcase_id, authority),
-            "ERROR: Claim fees could not be transfered.");
-            eosio_assert(transfer_items<payment_index>(claim_id, arbcase_id, authority),
-            "ERROR: Claim payments could not be transfered.");
-            eosio_assert(transfer_items<paymentdue_index>(claim_id, arbcase_id, authority),
-            "ERROR: Claim payments due could not be transfered.");
+            transfer_items<document_index>(claim_id, arbcase_id, authority);
+            transfer_items<transaction_index>(claim_id, arbcase_id, authority);
+            transfer_items<bond_index>(claim_id, arbcase_id, authority);
+            transfer_items<fee_index>(claim_id, arbcase_id, authority);
+            transfer_items<payment_index>(claim_id, arbcase_id, authority);
+            transfer_items<paymentdue_index>(claim_id, arbcase_id, authority);
             print("Case #", arbcase_id, " was successfully opened.");
         }
 
         //@abi action
         void closecase(const uint64_t arbcase_id, const account_name authority) {
-            eosio_assert(exists<arbitrator_index, uint64_t, account_name>(arbcase_id, authority),
+            eosio_assert(is_arbcase(arbcase_id), "ERROR: Case does not exist.");
+            eosio_assert(is_arbitrator(arbcase_id, authority),
             "ERROR: You are not an arbitrator on this case.");
             require_auth(authority);
             close<arbcase_index>(arbcase_id);
@@ -314,81 +327,117 @@ class arbitration : public eosio::contract {
             require_auth(payer);
             const uint64_t claim_id = next_index_id();
             add<claim_index, account_name, uint64_t>(_self, claim_id, payer);
-            eosio_assert(exists<claim_index, account_name, uint64_t>(_self, claim_id),
+            eosio_assert(is_claim(claim_id),
             "ERROR: Something went wrong. The case could not be opened.");
+            add<claimant_index, uint64_t, account_name>(claim_id, payer, payer);
+            eosio_assert(is_claimant(claim_id, payer),
+            "ERROR: Something went wrong. You could not be added as a claimant on the claim.");
             print("Claim #", claim_id, " was successfully opened.");
         }
 
-        // TODO: how to close claim if more than one claimant?
+        //@abi action
+        void closeclaim(const uint64_t claim_id, const account_name authority) {
+            eosio_assert(_self == authority, "ERROR: Only ECAF can close a claim.");
+            eosio_assert(is_claim(claim_id), "ERROR: Claim does not exist.");
+            require_auth(authority);
+            close<claim_index>(claim_id);
+            print("Claim #", claim_id, " was successfully closed.");
+        }
 
         //@abi action
         void rejectclaim(const uint64_t claim_id, const account_name authority) {
-            eosio_assert(_self == authority,
-            "ERROR: Only ECAF can reject a claim.");
+            eosio_assert(_self == authority, "ERROR: Only ECAF can reject a claim.");
             require_auth(authority);
-            eosio_assert(exists<claim_index, account_name, uint64_t>(_self, claim_id),
-            "ERROR: Claim does not exist.");
+            eosio_assert(is_claim(claim_id), "ERROR: Claim does not exist.");
             reject(claim_id);
             print("Claim #", claim_id, " was successfully rejected.");
         }
 
         //@abi action
-        void adddocument() {
+        void adddoc(const uint64_t entity_id, const account_name owner,
+                    const string description, const string link,
+                    const checksum256 hash_of_contents) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_claimant(entity_id, owner) || is_respondent(entity_id, owner),
+            "ERROR: You are not authorized to add a document.")
+            const uint64_t doc_id = next_index_id();
+            add<document_index>(entity_id, doc_id, owner, description,
+                                link, hash_of_contents, owner);
+            eosio_assert(is_document(entity_id, doc_id), "ERROR: Document could not be added.");
+            print("Document #", doc_id, " was successfully added.");
+        }
+
+        //@abi action
+        void removedoc(const uint64_t entity_id, const uint64_t doc_id, const account_name authority) {
 
         }
 
         //@abi action
-        void removedocument() {
+        void addrjctn(const uint64_t entity_id, const account_name owner,
+                      const string description, const string link,
+                      const checksum256 hash_of_contents) {
+            print("Rejection #", rejection_id, " was successfully added.");
+        }
+
+        //@abi action
+        void removerjctn() {
 
         }
 
         //@abi action
-        void addrejection() {
+        void addtx(const uint64_t entity_id, const account_name owner,
+                   const string description, const string link,
+                   const checksum256 tx_id) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_claimant(entity_id, owner) || is_respondent(entity_id, owner),
+            "ERROR: You are not authorized to add a transaction.")
+            const uint64_t txid = next_index_id();
+            add<transaction_index>(entity_id, txid, owner, description,
+                                   link, tx_id, owner);
+            eosio_assert(is_transaction(entity_id, txid), "ERROR: transaction could not be added.");
+            print("Transaction #", txid, " was successfully added.");
+        }
+
+        //@abi action
+        void removetx() {
 
         }
 
         //@abi action
-        void removerejection() {
+        void addarb(const uint64_t entity_id, const account_name arb, const account_name authority) {
+            eosio_assert(_self == authority, "ERROR: Only ECAF can add an arbitrator to a case.");
+            require_auth(authority);
+            eosio_assert(is_arbcase(entity_id), "ERROR: Case does not exist.");
+            eosio_assert(!is_arbitrator(entity_id, arb),
+            "ERROR: Arbitrator has already been assigned to the specified case.");
+            add<arbitrator_index, uint64_t, account_name>(entity_id, arb, _self);
+            eosio_assert(is_arbitrator(entity_id, arb),
+            "ERROR: Arbitrator could not be assigned to the specified case.");
+            print("Arbitrator ", eosio::name{arb}, " was successfully assigned to Case #", entity_id, ".");
+        }
+
+        //@abi action
+        void removearb() {
 
         }
 
         //@abi action
-        void addtransaction() {
+        void addclmnt() {
 
         }
 
         //@abi action
-        void removetransaction() {
+        void removeclmnt() {
 
         }
 
         //@abi action
-        void addarbitrator() {
+        void addresp() {
 
         }
 
         //@abi action
-        void removearbitrator() {
-
-        }
-
-        //@abi action
-        void addclaimant() {
-
-        }
-
-        //@abi action
-        void removeclaimant() {
-
-        }
-
-        //@abi action
-        void addrespondent() {
-
-        }
-
-        //@abi action
-        void removerespondent() {
+        void removeresp() {
 
         }
 
@@ -403,22 +452,22 @@ class arbitration : public eosio::contract {
         }
 
         //@abit action
-        void setssubmittalfee() {
+        void setsubfee() {
 
         }
 
         //@abi action
-        void setpaymentdue() {
+        void setpymntdue() {
 
         }
 
         //@abit action
-        void paypaymentdue() {
+        void paypymntdue() {
 
         }
 
         //@abit action
-        void paysubmittalfee() {
+        void paysubfee() {
 
         }
 
@@ -432,6 +481,7 @@ class arbitration : public eosio::contract {
             uint64_t id;
             bool closed = false;
             bool rejected = false;
+            bool dropped = false;
             uint64_t primary_key() const { return id; }
             EOSLIB_SERIALIZE( claim, (id)(closed)(rejected) )
         };
