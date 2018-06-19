@@ -39,63 +39,67 @@ class arbitration : public eosio::contract {
          */ 
 
         /**
-         * arbcase + claim + document + transaction + rejection + 
+         * document + transaction + rejection + 
          * bond + fee + payment + paymentdue + arbitrator + 
          * claimant + respondent
         */
-        template <typename T, typename G, typename U>
-        bool exists(G entity_id, U item_id) {
-            if (typeid(G) == typeid(account_name)) {
-                T table(_self, entity_id);
-                return table.find(item_id) != table.end();
-            } else {
-                T table(_self, toname(entity_id));
-                return table.find(item_id) != table.end();
-            }
+        template <typename T, typename U>
+        bool exists(const uint64_t entity_id, U item_id) {
+            T table(_self, toname(entity_id));
+            return table.find(item_id) != table.end();
+        }
+
+        /**
+         * arbcase + claim
+        */
+        template <typename T>
+        bool exists(const uint64_t entity_id) {
+            T table(_self, _self);
+            return table.find(entity_id) != table.end();
         }
 
         bool is_arbcase(const uint64_t arbcase_id) {
-            return exists<arbcase_index, account_name, uint64_t>(_self, arbcase_id);
+            return exists<arbcase_index>(arbcase_id);
         }
 
         bool is_claim(const uint64_t claim_id) {
-            return exists<claim_index, account_name, uint64_t>(_self, claim_id);
+            return exists<claim_index>(claim_id);
         }
 
         bool is_arbitrator(const uint64_t entity_id, const account_name arb) {
-            return exists<arbitrator_index, uint64_t, account_name>(entity_id, arb);
+            return exists<arbitrator_index, account_name>(entity_id, arb);
         }
 
         bool is_claimant(const uint64_t entity_id, const account_name clmnt) {
-            return exists<claimant_index, uint64_t, account_name>(entity_id, clmnt);
+            return exists<claimant_index, account_name>(entity_id, clmnt);
         }
 
         bool is_respondent(const uint64_t entity_id, const account_name rspndnt) {
-            return exists<respondent_index, uint64_t, account_name>(entity_id, rspndnt);
+            return exists<respondent_index, account_name>(entity_id, rspndnt);
         }
 
         bool is_document(const uint64_t entity_id, const uint64_t doc) {
-            return exists<document_index, uint64_t, uint64_t>(entity_id, doc);
+            return exists<document_index, uint64_t>(entity_id, doc);
         }
 
         bool is_rejection(const uint64_t entity_id, const uint64_t rej) {
-            return exists<rejection_index, uint64_t, uint64_t>(entity_id, rej);
+            return exists<rejection_index, uint64_t>(entity_id, rej);
         }
 
         bool is_transaction(const uint64_t entity_id, const uint64_t tx) {
-            return exists<transaction_index, uint64_t, uint64_t>(entity_id, tx);
+            return exists<transaction_index, uint64_t>(entity_id, tx);
         }
 
         bool is_bond(const uint64_t entity_id, const uint64_t bnd) {
-            return exists<bond_index, uint64_t, uint64_t>(entity_id, bnd);
+            return exists<bond_index, uint64_t>(entity_id, bnd);
         }
 
         bool is_fee(const uint64_t entity_id, const uint64_t f) {
-            return exists<fee_index, uint64_t, uint64_t>(entity_id, f);
+            return exists<fee_index, uint64_t>(entity_id, f);
         }
 
         bool is_paymentdue(const uint64_t entity_id, const account_name id) {
-            return exists<paymentdue_index, uint64_t, account_name>(entity_id, id);
+            return exists<paymentdue_index, account_name>(entity_id, id);
         }
 
         template<typename T>
@@ -107,21 +111,26 @@ class arbitration : public eosio::contract {
         }
 
         /**
-         * arbcase + claim + arbitrator + claimant + respondent
+         * arbcase + claim
          */
-        template <typename T, typename G, typename U>
-        void add(G entity_id, U item_id, const account_name payer) {
-            if (typeid(G) == typeid(account_name)) {
-                T table(_self, entity_id);
-                table.emplace(payer, [&](auto& entity) {
-                    entity.id = item_id;
-                });
-            } else {
-                T table(_self, toname(entity_id));
-                table.emplace(payer, [&](auto& entity) {
-                    entity.id = item_id;
-                });
-            }
+        template <typename T>
+        void add(const uint64_t entity_id, const account_name payer) {
+            T table(_self, _self);
+            table.emplace(payer, [&](auto& entity) {
+                entity.id = entity_id;
+            });
+        }
+
+        /**
+         * arbitrator + claimant + respondent
+         */
+        template <typename T>
+        void add(const uint64_t entity_id, const account_name item_id,
+                 const account_name payer) {
+            T table(_self, toname(entity_id));
+            table.emplace(payer, [&](auto& entity) {
+                entity.id = item_id;
+            });
         }
 
         /**
@@ -202,21 +211,24 @@ class arbitration : public eosio::contract {
         }
 
         /**
-         * arbcase + claim + document + transaction + rejection + 
-         * bond + fee + payment + paymentdue + arbitrator + claimant + 
-         * respondent
+         * arbcase + claim
         */
-        template <typename T, typename G, typename U>
-        void remove(G entity_id, U item_id) {
-            if (typeid(G) == typeid(account_name)) {
-                T table(_self, entity_id); 
-                auto itr = table.find(item_id);
-                table.erase(itr);
-            } else {
-                T table(_self, toname(entity_id)); 
-                auto itr = table.find(item_id);
-                table.erase(itr);
-            }
+        template <typename T>
+        void remove(const uint64_t entity_id) {
+            T table(_self, _self); 
+            auto itr = table.find(entity_id);
+            table.erase(itr);
+        }
+
+        /**
+         * document + transaction + rejection + bond + fee + payment +
+         * paymentdue + arbitrator + claimant + respondent
+        */
+        template <typename T, typename U>
+        void remove(const uint64_t entity_id, U item_id) {
+            T table(_self, toname(entity_id)); 
+            auto itr = table.find(item_id);
+            table.erase(itr);
         }
 
         /**
@@ -254,36 +266,54 @@ class arbitration : public eosio::contract {
             });
         }
 
-        /**
-         * document + transaction + rejection + bond + fee + payment + paymentdue
-         */
-        template <typename T>
-        void transfer_items(const uint64_t claim_id, const uint64_t arbcase_id,
-                            const account_name payer) {
-            T table(_self, toname(claim_id));
-            if (payment_index == typeid(T)) {
-                for(const auto& item : table) {
-                    add<T>(arbcase_id, item.id, item.owner, item.amount, payer);
-                }
-            } else if (paymentdue_index == typeid(T)) {
-                for(const auto& item : table) {
-                    add<T>(arbcase_id, item.id, item.amount, payer);
-                }
-            } else if (document_index == typeid(T)) {
-                for(const auto& item : table) {
-                    add<T>(arbcase_id, item.id, item.owner, item.description,
-                           item.link, item.hash_of_contents, payer);
-                }
-            } else if (transaction_index == typeid(T)) {
-                for(const auto& item : table) {
-                    add<T>(arbcase_id, item.id, item.owner, item.description,
-                           item.link, item.tx_id, payer);
-                    }
-            } else if (bond_index == typeid(T) || fee_index == typeid(T)) {
-                for(const auto& item : table) {
-                    add<T>(arbcase_id, item.id, item.amount, item.current, payer);
-                }
+        void transfer_paymentsdue(const uint64_t claim_id, const uint64_t arbcase_id,
+                                const account_name payer) {
+            paymentdue_index paymentsdue(_self, toname(claim_id));
+            for(const auto& item : paymentsdue) {
+                add<paymentdue_index>(arbcase_id, item.id, item.amount, payer);
             }
+        }
+
+        void transfer_payments(const uint64_t claim_id, const uint64_t arbcase_id,
+                                const account_name payer) {
+            payment_index payments(_self, toname(claim_id));
+            for(const auto& item : payments) {
+                add<payment_index>(arbcase_id, item.id, item.owner, item.amount, payer);
+            }
+        }
+
+        void transfer_documents(const uint64_t claim_id, const uint64_t arbcase_id,
+                                const account_name payer) {
+            document_index documents(_self, toname(claim_id));
+            for(const auto& item : documents) {
+                add<document_index>(arbcase_id, item.id, item.owner, item.description,
+                                    item.link, item.hash_of_contents, payer);
+            }
+        }
+
+        void transfer_transactions(const uint64_t claim_id, const uint64_t arbcase_id,
+                                const account_name payer) {
+            transaction_index transactions(_self, toname(claim_id));
+            for(const auto& item : transactions) {
+                add<transaction_index>(arbcase_id, item.id, item.owner, item.description,
+                                    item.link, item.tx_id, payer);
+            }
+        }
+
+        void transfer_bonds(const uint64_t claim_id, const uint64_t arbcase_id,
+                            const account_name payer) {
+            bond_index bonds(_self, toname(claim_id));
+                for(const auto& item : bonds) {
+                    add<bond_index>(arbcase_id, item.id, item.amount, item.current, payer);
+                }
+        }
+
+        void transfer_fees(const uint64_t claim_id, const uint64_t arbcase_id,
+                            const account_name payer) {
+            fee_index fees(_self, toname(claim_id));
+                for(const auto& item : fees) {
+                    add<fee_index>(arbcase_id, item.id, item.amount, item.current, payer);
+                }
         }
 
         /**
