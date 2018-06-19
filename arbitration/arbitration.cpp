@@ -26,6 +26,12 @@ class arbitration : public eosio::contract {
             return entity_id;
         }
 
+        void validate_asset(const asset& quantity){
+            eosio_assert(quantity.is_valid(), "ERROR: Not a valid asset.");
+            eosio_assert(quantity.symbol == S(4,EOS), "ERROR: Only EOS tokens may be used.");
+            eosio_assert(quantity.amount > 0,"ERROR: Asset amount must be greater than 0.");
+        }
+
         /**
          * In the functions below, entity_id can either be an arbcase id, a
          * claim id or _self. entity_id is being used as the scope during
@@ -78,6 +84,18 @@ class arbitration : public eosio::contract {
 
         bool is_transaction(const uint64_t entity_id, const uint64_t tx) {
             return exists<transaction_index, uint64_t, uint64_t>(entity_id, tx);
+        }
+
+        bool is_bond(const uint64_t entity_id, const uint64_t bnd) {
+            return exists<bond_index, uint64_t, uint64_t>(entity_id, bnd);
+        }
+
+        bool is_fee(const uint64_t entity_id, const uint64_t f) {
+            return exists<fee_index, uint64_t, uint64_t>(entity_id, f);
+        }
+
+        bool is_paymentdue(const uint64_t entity_id, const account_name id) {
+            return exists<paymentdue_index, uint64_t, account_name>(entity_id, id);
         }
 
         template<typename T>
@@ -261,7 +279,6 @@ class arbitration : public eosio::contract {
                     add<T>(arbcase_id, item.id, item.owner, item.description,
                            item.link, item.tx_id, payer);
                     }
-                }
             } else if (bond_index == typeid(T) || fee_index == typeid(T)) {
                 for(const auto& item : table) {
                     add<T>(arbcase_id, item.id, item.amount, item.current, payer);
@@ -359,7 +376,8 @@ class arbitration : public eosio::contract {
                     const checksum256 hash_of_contents) {
             eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
             eosio_assert(is_claimant(entity_id, owner) || is_respondent(entity_id, owner),
-            "ERROR: You are not authorized to add a document.")
+            "ERROR: You are not authorized to add a document.");
+            require_auth(owner);
             const uint64_t doc_id = next_index_id();
             add<document_index>(entity_id, doc_id, owner, description,
                                 link, hash_of_contents, owner);
@@ -368,21 +386,27 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void removedoc(const uint64_t entity_id, const uint64_t doc_id, const account_name authority) {
-
-        }
+        // void removedoc(const uint64_t entity_id, const uint64_t doc_id, const account_name authority) {
+        // }
 
         //@abi action
         void addrjctn(const uint64_t entity_id, const account_name owner,
                       const string description, const string link,
                       const checksum256 hash_of_contents) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_arbitrator(entity_id, owner) || _self == owner,
+            "ERROR: You are not authorized to add a rejection.");
+            require_auth(owner);
+            const uint64_t rejection_id = next_index_id();
+            add<rejection_index>(entity_id, rejection_id, owner, description,
+                                link, hash_of_contents, owner);
+            eosio_assert(is_rejection(entity_id, rejection_id), "ERROR: Document could not be added.");
             print("Rejection #", rejection_id, " was successfully added.");
         }
 
         //@abi action
-        void removerjctn() {
-
-        }
+        // void removerjctn() {
+        // }
 
         //@abi action
         void addtx(const uint64_t entity_id, const account_name owner,
@@ -390,7 +414,8 @@ class arbitration : public eosio::contract {
                    const checksum256 tx_id) {
             eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
             eosio_assert(is_claimant(entity_id, owner) || is_respondent(entity_id, owner),
-            "ERROR: You are not authorized to add a transaction.")
+            "ERROR: You are not authorized to add a transaction.");
+            require_auth(owner);
             const uint64_t txid = next_index_id();
             add<transaction_index>(entity_id, txid, owner, description,
                                    link, tx_id, owner);
@@ -399,9 +424,8 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void removetx() {
-
-        }
+        // void removetx() {
+        // }
 
         //@abi action
         void addarb(const uint64_t entity_id, const account_name arb, const account_name authority) {
@@ -417,63 +441,99 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void removearb() {
+        // void removearb() {
+        // }
 
+        //@abi action
+        void addclmnt(const uint64_t entity_id, const account_name clmnt, const account_name authority) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
+            "ERROR: You are not authorized to add a claimant.");
+            require_auth(authority);
+            add<claimant_index, uint64_t, account_name>(entity_id, clmnt, authority);
+            eosio_assert(is_claimant(entity_id, clmnt),
+            "ERROR: Claimant could not be added.");
         }
 
         //@abi action
-        void addclmnt() {
+        // void removeclmnt() {
+        // }
 
+        //@abi action
+        void addresp(const uint64_t entity_id, const account_name resp, const account_name authority) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
+            "ERROR: You are not authorized to add a respondent.");
+            require_auth(authority);
+            add<respondent_index, uint64_t, account_name>(entity_id, resp, authority);
+            eosio_assert(is_respondent(entity_id, resp),
+            "ERROR: Respondent could not be added.");
+        }
+        
+        //@abi action
+        // void removeresp() {
+        // }
+
+        //@abit action
+        void setbond(const uint64_t entity_id, const asset amount, const account_name authority) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
+            "ERROR: You are not authorized to set the bond.");
+            require_auth(authority);
+            validate_asset(amount);
+            flip_current<bond_index>(entity_id);
+            const uint64_t bond_id = next_index_id();
+            add<bond_index>(entity_id,bond_id, amount, 1, authority);
+            eosio_assert(is_bond(entity_id, bond_id),
+            "ERROR: Bond could not be set.");
+        }
+
+        //@abit action
+        void setfee(const uint64_t entity_id, const asset amount, const account_name authority) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
+            "ERROR: You are not authorized to set the fee.");
+            require_auth(authority);
+            validate_asset(amount);
+            flip_current<fee_index>(entity_id);
+            const uint64_t fee_id = next_index_id();
+            add<fee_index>(entity_id,fee_id, amount, 1, authority);
+            eosio_assert(is_fee(entity_id, fee_id),
+            "ERROR: Fee could not be set.");
+        }
+
+        //@abit action
+        void setsubfee(const asset amount, const account_name authority) {
+            eosio_assert(_self == authority,
+            "ERROR: You are not authorized to set the submittal fee.");
+            require_auth(authority);
+            validate_asset(amount);
+            setsf(amount, authority);
         }
 
         //@abi action
-        void removeclmnt() {
-
-        }
-
-        //@abi action
-        void addresp() {
-
-        }
-
-        //@abi action
-        void removeresp() {
-
-        }
-
-        //@abit action
-        void setbond() {
-
+        void setpymntdue(const uint64_t entity_id, const account_name item_id,
+                         const asset amount, const account_name authority) {
+            eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
+            eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
+            "ERROR: You are not authorized to set the payment due.");
+            require_auth(authority);
+            validate_asset(amount);
+            add<paymentdue_index>(entity_id, item_id, amount, authority);
+            eosio_assert(is_paymentdue(entity_id, item_id),
+            "ERROR: Payment due could not be set.");
         }
 
         //@abit action
-        void setfee() {
-
-        }
-
-        //@abit action
-        void setsubfee() {
-
-        }
-
-        //@abi action
-        void setpymntdue() {
-
-        }
+        // void paypymntdue() {
+        // }
 
         //@abit action
-        void paypymntdue() {
+        // void paysubfee() {
+        // }
 
-        }
-
-        //@abit action
-        void paysubfee() {
-
-        }
-
-        void transferhandler() {
-
-        }
+        // void transferhandler() {
+        // }
 
     private:
         //@abi table claim i64
@@ -630,4 +690,6 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration,  )
+EOSIO_ABI( arbitration, (opencase)(closecase)(openclaim)(closeclaim)(rejectclaim)
+                        (adddoc)(addrjctn)(addtx)(addarb)(addclmnt)(addresp)(setbond)
+                        (setfee)(setsubfee)(setpymntdue) )
