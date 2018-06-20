@@ -6,6 +6,9 @@
 #include <eosiolib/asset.hpp>
 #include <string>
 
+#define DEBUG
+#include "logger.hpp"
+
 using eosio::const_mem_fun;
 using eosio::indexed_by;
 using eosio::print;
