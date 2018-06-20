@@ -129,9 +129,9 @@ class arbitration : public eosio::contract {
         }
 
         template<typename T>
-        bool is_owner(const uint64_t entity_id, const uint64_t item_id,
+        bool is_owner(const uint64_t filing_id, const uint64_t item_id,
                       const account_name owner) {
-            T table(_self, toname(entity_id));
+            T table(_self, toname(filing_id));
             auto item = table.get(item_id);
             return item.owner == owner;
         }
@@ -152,7 +152,7 @@ class arbitration : public eosio::contract {
          */
         template <typename T>
         void add(const uint64_t filing_id, const account_name person_id) {
-            T table(_self, toname(entity_id));
+            T table(_self, toname(filing_id));
             table.emplace(_self, [&](auto& p) {
                 p.id = person_id;
             });
@@ -298,20 +298,27 @@ class arbitration : public eosio::contract {
             });
         }
 
-        /**
-         * bond + fee
-         */
-        template<typename T>
-        void flip_current(const uint64_t filing_id) {
-            T table(_self, toname(filing_id));
-            if (table.end() != table.begin()) {
-                auto current_index = table.get_index<N(bycurrent)>();
+        void flip_bond(const uint64_t entity_id) {
+            bond_index bonds(_self, toname(entity_id));
+            if (bonds.end() != bonds.begin()) {
+                auto current_index = bonds.get_index<N(bycurrent)>();
                 auto currents_itr = current_index.find(1);
-                current_index.modify(currents_itr, 0, [&](auto& item) {
-                    item.current = 0;
+                current_index.modify(currents_itr, 0, [&](auto& b) {
+                    b.current = 0;
                 });
             }
         }
+
+        void flip_fee(const uint64_t entity_id) {
+            fee_index fees(_self, toname(entity_id));
+            if (fees.end() != fees.begin()) {
+                auto current_index = fees.get_index<N(bycurrent)>();
+                auto currents_itr = current_index.find(1);
+                current_index.modify(currents_itr, 0, [&](auto& f) {
+                    f.current = 0;
+                });
+            }
+}
 
         /**
          * submittalfee
@@ -540,7 +547,7 @@ class arbitration : public eosio::contract {
             eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
             "ERROR: You are not authorized to set the bond.");
             require_auth(authority);
-            flip_current<bond_index>(filing_id);
+            flip_bond(filing_id);
             const uint64_t bond_id = next_index_id();
             add<bond_index>(filing_id, bond_id, amount);
             eosio_assert(is_bond(filing_id, bond_id), "ERROR: Bond could not be set.");
@@ -553,7 +560,7 @@ class arbitration : public eosio::contract {
             eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
             "ERROR: You are not authorized to set the fee.");
             require_auth(authority);
-            flip_current<fee_index>(filing_id);
+            flip_fee(filing_id);
             const uint64_t fee_id = next_index_id();
             add<fee_index>(filing_id, fee_id, amount);
             eosio_assert(is_fee(filing_id, fee_id), "ERROR: Fee could not be set.");
@@ -649,7 +656,7 @@ class arbitration : public eosio::contract {
             account_name owner;
             checksum256 contents;
             uint64_t primary_key() const { return id; }
-            EOSLIB_SERIALIZE( rejection, (id)(owner)(contents)(confirmed_by_owner) )
+            EOSLIB_SERIALIZE( rejection, (id)(owner)(contents) )
         };
         typedef eosio::multi_index< N(rejection), rejection > rejection_index;
 
@@ -728,6 +735,6 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration, (opencase)(closecase)(createclaim)(closeclaim)(rejectclaim)
-                        (adddoc)(addrjctn)(addtx)(addarb)(addclmnt)(addresp)(setbond)
-                        (setfee)(setsubfee)(setpymntdue) )
+EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)
+                        (suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(addtx)(addrjctn)
+                        (addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee) )
