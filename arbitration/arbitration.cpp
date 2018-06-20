@@ -134,28 +134,11 @@ class arbitration : public eosio::contract {
         }
 
         /**
-         * document + rejection
-         */ 
-        template <typename T>
-        void add(const uint64_t entity_id, const uint64_t item_id,
-                 const account_name owner, const string description, const string link,
-                 const checksum256 hash_of_contents, const account_name payer) {
-            T table(_self, toname(entity_id));
-            table.emplace(payer, [&](auto& item) {
-                item.id = item_id;
-                item.owner = owner;
-                item.description = description;
-                item.link = link;
-                item.hash_of_contents = hash_of_contents;
-            });
-        }
-
-       /**
-         * transaction
+         * document + rejection + transaction
          */ 
         template <typename T>
         void add(const uint64_t entity_id, const uint64_t item_id, const account_name owner,
-                 const string description, const string link, const checksum256 tx_id,
+                 const string description, const string link, const checksum256 contents,
                  const account_name payer) {
             T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& item) {
@@ -163,7 +146,7 @@ class arbitration : public eosio::contract {
                 item.owner = owner;
                 item.description = description;
                 item.link = link;
-                item.tx_id = tx_id;
+                item.contents = contents;
             });
         }
 
@@ -200,7 +183,7 @@ class arbitration : public eosio::contract {
          */ 
         template <typename T>
         void add(const uint64_t entity_id, const uint64_t item_id,
-                 const asset amount, const uint8_t current,
+                 const asset amount, const uint64_t current,
                  const account_name payer) {
             T table(_self, toname(entity_id));
             table.emplace(payer, [&](auto& item) {
@@ -287,7 +270,7 @@ class arbitration : public eosio::contract {
             document_index documents(_self, toname(claim_id));
             for(const auto& item : documents) {
                 add<document_index>(arbcase_id, item.id, item.owner, item.description,
-                                    item.link, item.hash_of_contents, payer);
+                                    item.link, item.contents, payer);
             }
         }
 
@@ -296,7 +279,7 @@ class arbitration : public eosio::contract {
             transaction_index transactions(_self, toname(claim_id));
             for(const auto& item : transactions) {
                 add<transaction_index>(arbcase_id, item.id, item.owner, item.description,
-                                    item.link, item.tx_id, payer);
+                                    item.link, item.contents, payer);
             }
         }
 
@@ -316,16 +299,23 @@ class arbitration : public eosio::contract {
                 }
         }
 
-        /**
-         * bond + fee
-         */
-        template <typename T>
-        void flip_current(const uint64_t entity_id) {
-            T table(_self, toname(entity_id));
-            if (table.end() != table.begin()) {
-                auto current_index = table.get_index<N(bycurrent)>();
+        void flip_bond(const uint64_t entity_id) {
+            bond_index bonds(_self, toname(entity_id));
+            if (bonds.end() != bonds.begin()) {
+                auto current_index = bonds.get_index<N(bycurrent)>();
                 auto currents_itr = current_index.find(1);
-                table.modify(currents_itr, 0, [&](auto& f) {
+                current_index.modify(currents_itr, 0, [&](auto& b) {
+                    b.current = 0;
+                });
+            }
+        }
+
+        void flip_fee(const uint64_t entity_id) {
+            fee_index fees(_self, toname(entity_id));
+            if (fees.end() != fees.begin()) {
+                auto current_index = fees.get_index<N(bycurrent)>();
+                auto currents_itr = current_index.find(1);
+                current_index.modify(currents_itr, 0, [&](auto& f) {
                     f.current = 0;
                 });
             }
@@ -346,15 +336,15 @@ class arbitration : public eosio::contract {
             require_auth(authority);
             eosio_assert(is_claim(claim_id), "ERROR: Claim does not exist.");
             const uint64_t arbcase_id = next_index_id();
-            add<arbcase_index, account_name, uint64_t>(_self, arbcase_id, authority);
+            add<arbcase_index>(arbcase_id, authority);
             eosio_assert(is_arbcase(arbcase_id),
             "ERROR: Something went wrong. The case could not be opened.");
-            transfer_items<document_index>(claim_id, arbcase_id, authority);
-            transfer_items<transaction_index>(claim_id, arbcase_id, authority);
-            transfer_items<bond_index>(claim_id, arbcase_id, authority);
-            transfer_items<fee_index>(claim_id, arbcase_id, authority);
-            transfer_items<payment_index>(claim_id, arbcase_id, authority);
-            transfer_items<paymentdue_index>(claim_id, arbcase_id, authority);
+            transfer_documents(claim_id, arbcase_id, authority);
+            transfer_transactions(claim_id, arbcase_id, authority);
+            transfer_bonds(claim_id, arbcase_id, authority);
+            transfer_fees(claim_id, arbcase_id, authority);
+            transfer_payments(claim_id, arbcase_id, authority);
+            transfer_paymentsdue(claim_id, arbcase_id, authority);
             print("Case #", arbcase_id, " was successfully opened.");
         }
 
@@ -373,10 +363,10 @@ class arbitration : public eosio::contract {
             // TODO: make sure they paid the submittal fee
             require_auth(payer);
             const uint64_t claim_id = next_index_id();
-            add<claim_index, account_name, uint64_t>(_self, claim_id, payer);
+            add<claim_index>(claim_id, payer);
             eosio_assert(is_claim(claim_id),
             "ERROR: Something went wrong. The case could not be opened.");
-            add<claimant_index, uint64_t, account_name>(claim_id, payer, payer);
+            add<claimant_index>(claim_id, payer);
             eosio_assert(is_claimant(claim_id, payer),
             "ERROR: Something went wrong. You could not be added as a claimant on the claim.");
             print("Claim #", claim_id, " was successfully opened.");
@@ -403,14 +393,14 @@ class arbitration : public eosio::contract {
         //@abi action
         void adddoc(const uint64_t entity_id, const account_name owner,
                     const string description, const string link,
-                    const checksum256 hash_of_contents) {
+                    const checksum256 contents) {
             eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
             eosio_assert(is_claimant(entity_id, owner) || is_respondent(entity_id, owner),
             "ERROR: You are not authorized to add a document.");
             require_auth(owner);
             const uint64_t doc_id = next_index_id();
             add<document_index>(entity_id, doc_id, owner, description,
-                                link, hash_of_contents, owner);
+                                link, contents, owner);
             eosio_assert(is_document(entity_id, doc_id), "ERROR: Document could not be added.");
             print("Document #", doc_id, " was successfully added.");
         }
@@ -422,14 +412,14 @@ class arbitration : public eosio::contract {
         //@abi action
         void addrjctn(const uint64_t entity_id, const account_name owner,
                       const string description, const string link,
-                      const checksum256 hash_of_contents) {
+                      const checksum256 contents) {
             eosio_assert(is_arbcase(entity_id) || is_claim(entity_id), "ERROR: Neither a case or claim.");
             eosio_assert(is_arbitrator(entity_id, owner) || _self == owner,
             "ERROR: You are not authorized to add a rejection.");
             require_auth(owner);
             const uint64_t rejection_id = next_index_id();
             add<rejection_index>(entity_id, rejection_id, owner, description,
-                                link, hash_of_contents, owner);
+                                link, contents, owner);
             eosio_assert(is_rejection(entity_id, rejection_id), "ERROR: Document could not be added.");
             print("Rejection #", rejection_id, " was successfully added.");
         }
@@ -464,7 +454,7 @@ class arbitration : public eosio::contract {
             eosio_assert(is_arbcase(entity_id), "ERROR: Case does not exist.");
             eosio_assert(!is_arbitrator(entity_id, arb),
             "ERROR: Arbitrator has already been assigned to the specified case.");
-            add<arbitrator_index, uint64_t, account_name>(entity_id, arb, _self);
+            add<arbitrator_index>(entity_id, arb, _self);
             eosio_assert(is_arbitrator(entity_id, arb),
             "ERROR: Arbitrator could not be assigned to the specified case.");
             print("Arbitrator ", eosio::name{arb}, " was successfully assigned to Case #", entity_id, ".");
@@ -480,7 +470,7 @@ class arbitration : public eosio::contract {
             eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
             "ERROR: You are not authorized to add a claimant.");
             require_auth(authority);
-            add<claimant_index, uint64_t, account_name>(entity_id, clmnt, authority);
+            add<claimant_index>(entity_id, clmnt, authority);
             eosio_assert(is_claimant(entity_id, clmnt),
             "ERROR: Claimant could not be added.");
         }
@@ -495,7 +485,7 @@ class arbitration : public eosio::contract {
             eosio_assert(is_arbitrator(entity_id, authority) || _self == authority,
             "ERROR: You are not authorized to add a respondent.");
             require_auth(authority);
-            add<respondent_index, uint64_t, account_name>(entity_id, resp, authority);
+            add<respondent_index>(entity_id, resp, authority);
             eosio_assert(is_respondent(entity_id, resp),
             "ERROR: Respondent could not be added.");
         }
@@ -511,7 +501,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to set the bond.");
             require_auth(authority);
             validate_asset(amount);
-            flip_current<bond_index>(entity_id);
+            flip_bond(entity_id);
             const uint64_t bond_id = next_index_id();
             add<bond_index>(entity_id,bond_id, amount, 1, authority);
             eosio_assert(is_bond(entity_id, bond_id),
@@ -525,7 +515,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to set the fee.");
             require_auth(authority);
             validate_asset(amount);
-            flip_current<fee_index>(entity_id);
+            flip_fee(entity_id);
             const uint64_t fee_id = next_index_id();
             add<fee_index>(entity_id,fee_id, amount, 1, authority);
             eosio_assert(is_fee(entity_id, fee_id),
@@ -616,10 +606,10 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            checksum256 hash_of_contents;
+            checksum256 contents;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( document, (id)(owner)(description)(link)(hash_of_contents) )
+            EOSLIB_SERIALIZE( document, (id)(owner)(description)(link)(contents) )
         };
         typedef eosio::multi_index< N(document), document,
             indexed_by< N(byowner), const_mem_fun<document, account_name, &document::by_owner> >
@@ -631,10 +621,9 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            checksum256 hash_of_contents;
+            checksum256 contents;
             uint64_t primary_key() const { return id; }
-            account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( rejection, (id)(owner)(description)(link)(hash_of_contents) )
+            EOSLIB_SERIALIZE( rejection, (id)(owner)(description)(link)(contents) )
         };
         typedef eosio::multi_index< N(rejection), rejection > rejection_index;
 
@@ -644,10 +633,10 @@ class arbitration : public eosio::contract {
             account_name owner;
             string description;
             string link;
-            checksum256 tx_id;
+            checksum256 contents;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( transaction, (id)(owner)(description)(link)(tx_id) )
+            EOSLIB_SERIALIZE( transaction, (id)(owner)(description)(link)(contents) )
         };
         typedef eosio::multi_index< N(transaction), transaction,
             indexed_by< N(byowner), const_mem_fun<transaction, account_name, &transaction::by_owner> >
@@ -660,7 +649,7 @@ class arbitration : public eosio::contract {
             asset amount;
             uint64_t primary_key() const { return id; }
             account_name by_owner() const { return owner; }
-            EOSLIB_SERIALIZE( transaction, (id)(owner)(amount) )
+            EOSLIB_SERIALIZE( payment, (id)(owner)(amount) )
         };
         typedef eosio::multi_index< N(payment), payment,
             indexed_by< N(byowner), const_mem_fun<payment, account_name, &payment::by_owner> >
@@ -671,7 +660,7 @@ class arbitration : public eosio::contract {
             account_name id;
             asset amount;
             uint64_t primary_key() const { return id; }
-            EOSLIB_SERIALIZE( transaction, (id)(owner)(amount) )
+            EOSLIB_SERIALIZE( paymentdue, (id)(amount) )
         };
         typedef eosio::multi_index< N(paymentdue), paymentdue > paymentdue_index; 
 
@@ -679,26 +668,26 @@ class arbitration : public eosio::contract {
         struct fee {
             uint64_t id;
             asset amount;
-            uint8_t current;
+            uint64_t current;
             uint64_t primary_key() const { return id; }
-            uint8_t by_current() const { return current; }
-            EOSLIB_SERIALIZE( transaction, (id)(amount)(current) )
+            uint64_t by_current() const { return current; }
+            EOSLIB_SERIALIZE( fee, (id)(amount)(current) )
         };
         typedef eosio::multi_index< N(fee), fee,
-            indexed_by< N(bycurrent), const_mem_fun<fee, uint8_t, &fee::by_current> >
+            indexed_by< N(bycurrent), const_mem_fun<fee, uint64_t, &fee::by_current> >
             > fee_index;
 
         //@abi table bond i64
         struct bond {
             uint64_t id;
             asset amount;
-            uint8_t current;
+            uint64_t current;
             uint64_t primary_key() const { return id; }
-            uint8_t by_current() const { return current; }
-            EOSLIB_SERIALIZE( transaction, (id)(amount)(current) )
+            uint64_t by_current() const { return current; }
+            EOSLIB_SERIALIZE( bond, (id)(amount)(current) )
         };
         typedef eosio::multi_index< N(bond), bond,
-            indexed_by< N(bycurrent), const_mem_fun<bond, uint8_t, &bond::by_current> >
+            indexed_by< N(bycurrent), const_mem_fun<bond, uint64_t, &bond::by_current> >
             > bond_index;
 
         //@abi table submittalfee i64
