@@ -355,10 +355,6 @@ class arbitration : public eosio::contract {
             sf.set(new_submittalfee,authority);
         }
 
-
-        //-----------------------------------------------------------------------------------------//
-
-
         //@abi action
         void createclaim(const account_name authority) {
             eosio_assert(is_ecafarb(authority) || _self == authority,
@@ -783,6 +779,4 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)
-                        (suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(addtx)(addrjctn)
-                        (addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee) )
+EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee) )
