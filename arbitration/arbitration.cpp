@@ -349,7 +349,7 @@ class arbitration : public eosio::contract {
         /**
          * submittalfee
          */
-        bool setsf(const asset amount, const account_name authority) {
+        void setsf(const asset amount, const account_name authority) {
             submittalfee_index sf(_self,_self);
             submittalfee new_submittalfee{amount};
             sf.set(new_submittalfee,authority);
