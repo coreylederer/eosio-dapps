@@ -83,8 +83,8 @@ class arbitration : public eosio::contract {
         }
 
         /**
-         * document + transaction + rejection + bond + fee + payment +
-         * paymentdue + arbitrator + claimant + respondent
+         * document + transaction + rejection + bond + fee +
+         * payment + arbitrator + claimant + respondent
         */
         template <typename T, typename U>
         bool exists(const uint64_t filing_id, U item_id) {
@@ -556,7 +556,9 @@ class arbitration : public eosio::contract {
         void addarb(const uint64_t filing_id, const account_name arb, const account_name authority) {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_ecafarb(arb), "ERROR: Not an authorized arbitrator.");
+            eosio_assert(!is_arbitrator(filing_id, arb), "ERROR: That person is already an arbitrator.");
             eosio_assert(_self == authority, "ERROR: You are not authorized to add an arbitrator.");
+            require_auth(authority);
             add<arbitrator_index>(filing_id, arb);
             eosio_assert(is_arbitrator(filing_id, arb), "ERROR: Arbitrator could not be added.");
             print("Arbitrator ", eosio::name{arb}, " was successfully added.");
@@ -566,6 +568,7 @@ class arbitration : public eosio::contract {
         void addecafarb(const account_name arb, const account_name authority) {
             eosio_assert(_self == authority, "ERROR: You are not authorized to add an ECAF arbitrator.");
             eosio_assert(!is_ecafarb(arb), "ERROR: That ECAF arbitrator already exists.");
+            require_auth(authority);
             add<ecafarb_index>(arb);
             eosio_assert(is_ecafarb(arb), "ERROR: ECAF arbitrator could not be added.");
             print("ECAF Arbitrator ", eosio::name{arb}, " was successfully added.");
@@ -576,6 +579,9 @@ class arbitration : public eosio::contract {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
             "ERROR: You are not authorized to add a claimant.");
+            eosio_assert(!is_claimant(filing_id, clmnt), "ERROR: That person is already a claimant.");
+            eosio_assert(!is_respondent(filing_id, clmnt), "ERROR: That person is already a respondent.");
+            require_auth(authority);
             add<claimant_index>(filing_id, clmnt);
             eosio_assert(is_claimant(filing_id, clmnt), "ERROR: Claimant could not be added.");
             print("Claimant ", eosio::name{clmnt}, " was successfully added.");
@@ -586,9 +592,12 @@ class arbitration : public eosio::contract {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
             "ERROR: You are not authorized to add a respondent.");
+            eosio_assert(!is_claimant(filing_id, resp), "ERROR: That person is already a claimant.");
+            eosio_assert(!is_respondent(filing_id, resp), "ERROR: That person is already a respondent.");
+            require_auth(authority);
             add<respondent_index>(filing_id, resp);
             eosio_assert(is_respondent(filing_id, resp), "ERROR: respondent could not be added.");
-            print("respondent ", eosio::name{resp}, " was successfully added.");
+            print("Respondent ", eosio::name{resp}, " was successfully added.");
         }
 
         //@abi action
@@ -623,6 +632,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to set the submittal fee.");
             require_auth(authority);
             setsf(amount, authority);
+            print("Submittal Fee was successfully set to ", amount);
         }
 
     private:
