@@ -128,12 +128,38 @@ class arbitration : public eosio::contract {
             return exists<payment_index, uint64_t>(filing_id, pymnt);
         }
 
+        /**
+         * document + transaction
+         */   
+        template<typename T>
+        bool is_verified(const uint64_t filing_id, const uint64_t item_id) {
+            T table(_self, toname(filing_id));
+            auto item = table.get(item_id);
+            return item.confirmed_by_owner;
+        }
+
+        /**
+         * document + transaction
+         */   
         template<typename T>
         bool is_owner(const uint64_t filing_id, const uint64_t item_id,
                       const account_name owner) {
             T table(_self, toname(filing_id));
             auto item = table.get(item_id);
             return item.owner == owner;
+        }
+
+        /**
+         * document + transaction
+         */        
+        template<typename T>
+        void verify(const uint64_t filing_id, const uint64_t item_id,
+                    const account_name owner) {
+            T table(_self, toname(filing_id));
+            auto itr = table.find(item_id);
+            table.modify(itr, 0, [&](auto& item) {
+                item.confirmed_by_owner = true;
+            }); 
         }
 
         /**
@@ -476,6 +502,17 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void verifydoc(const uint64_t filing_id, const uint64_t doc_id, const account_name owner) {
+            eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
+            eosio_assert(is_document(filing_id, doc_id), "ERROR: Document does not exist.");
+            eosio_assert(is_owner<document_index>(filing_id, doc_id, owner), "ERROR: You do not own this document.");
+            eosio_assert(!is_verified<document_index>(filing_id, doc_id), "ERROR: Document has already been verified.");
+            verify<document_index>(filing_id, doc_id, owner);
+            eosio_assert(is_verified<document_index>(filing_id, doc_id), "ERROR: Document could not be verified.");
+            print("Document #", doc_id, " was successfully verified.");
+        }
+
+        //@abi action
         void addtx(const uint64_t filing_id, const account_name owner, const checksum256 contents,
                    const account_name authority) {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
@@ -486,6 +523,17 @@ class arbitration : public eosio::contract {
             add<transaction_index>(filing_id, tx_id, owner, contents);
             eosio_assert(is_transaction(filing_id, tx_id), "ERROR: Transaction could not be added.");
             print("Transaction #", tx_id, " was successfully added.");
+        }
+
+        //@abi action
+        void verifytx(const uint64_t filing_id, const uint64_t tx_id, const account_name owner) {
+            eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
+            eosio_assert(is_transaction(filing_id, tx_id), "ERROR: Transaction does not exist.");
+            eosio_assert(is_owner<transaction_index>(filing_id, tx_id, owner), "ERROR: You do not own this transaction.");
+            eosio_assert(!is_verified<transaction_index>(filing_id, tx_id), "ERROR: Transaction has already been verified.");
+            verify<transaction_index>(filing_id, tx_id, owner);
+            eosio_assert(is_verified<transaction_index>(filing_id, tx_id), "ERROR: Transaction could not be verified.");
+            print("Transaction #", tx_id, " was successfully verified.");
         }
 
         //@abi action
