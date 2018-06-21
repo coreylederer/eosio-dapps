@@ -1,0 +1,114 @@
+nodeos --verbose-http-errors --contracts-console --data-dir data --config-dir config
+
+keosd --http-server-address localhost:8899 --data-dir data
+
+cleos --wallet-url http://localhost:8899 wallet create
+
+Save password to use in the future to unlock this wallet.
+Without password imported keys will not be retrievable.
+"PW5KBRBSE7DDQ2Vv5BPWownmidymez71kffNASqjywYj5Z7qVteDG"
+
+
+eosio
+cleos --wallet-url http://localhost:8899 wallet import 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+
+
+Alice - user
+owner
+Private key: 5KkDnKpDGFgodR5brghiGpmVkUBn8ZphWQParuq1A5CuXeq7YAK
+Public key: EOS5rxttfUM3Mb3dbD45yArWrwqznMubxQaASR1oS3886GaxeaQZ4
+active
+Private key: 5JKYwYf5JmjzB9Fty3ZnCw6vGXvJd8wn66kLVj268mKEE5bQFDe
+Public key: EOS7qdCVGfEBt3MonTYiGKQqnrYciLsFfaRWTyLCu5VtsH339tBZp
+
+cleos --wallet-url http://localhost:8899 wallet import 5KkDnKpDGFgodR5brghiGpmVkUBn8ZphWQParuq1A5CuXeq7YAK
+cleos --wallet-url http://localhost:8899 wallet import 5JKYwYf5JmjzB9Fty3ZnCw6vGXvJd8wn66kLVj268mKEE5bQFDe
+cleos --wallet-url http://localhost:8899 create account eosio alice EOS5rxttfUM3Mb3dbD45yArWrwqznMubxQaASR1oS3886GaxeaQZ4 EOS7qdCVGfEBt3MonTYiGKQqnrYciLsFfaRWTyLCu5VtsH339tBZp
+
+
+Bob - user
+owner
+Private key: 5KShHnnqVtKGwKsv6UhihYjM72kLfRJf4XXiF5w6PJKcvA7CTGy
+Public key: EOS5LT4R2eiRhj7AgSNURby6JtqVnB26BCk8CwcBhPYzTFAkqKyzf
+active
+Private key: 5HvTyCZzCmovJLPuu17nGZHafW2qsAAAGsrTbt8LJFFNvpY4ssh
+Public key: EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
+
+cleos --wallet-url http://localhost:8899 wallet import 5KShHnnqVtKGwKsv6UhihYjM72kLfRJf4XXiF5w6PJKcvA7CTGy
+cleos --wallet-url http://localhost:8899 wallet import 5HvTyCZzCmovJLPuu17nGZHafW2qsAAAGsrTbt8LJFFNvpY4ssh
+    cleos --wallet-url http://localhost:8899 create account eosio bob EOS5LT4R2eiRhj7AgSNURby6JtqVnB26BCk8CwcBhPYzTFAkqKyzf EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
+
+Sam - arbitrator
+owner
+Private key: 5JPE1HPxk79RAQKWHYSYXX4aojCLqU1aNgj7ano6AcGFH3TdKVv
+Public key: EOS5816xzZKjt8RTKThtAWKcshZmvKUN6k5FtpSRUtuBh54swYUR7
+active
+Private key: 5Hpt5VZgKh5okxS1cMQavN3RRjZZYhs65ppTeToLCwXwcgNgZXD
+Public key: EOS5yGV6BWw3Fa5rDv8zNWZbC9i99GvuxL6S8JuLbeLZwEkXffWmG
+
+cleos --wallet-url http://localhost:8899 wallet import 5JPE1HPxk79RAQKWHYSYXX4aojCLqU1aNgj7ano6AcGFH3TdKVv
+cleos --wallet-url http://localhost:8899 wallet import 5Hpt5VZgKh5okxS1cMQavN3RRjZZYhs65ppTeToLCwXwcgNgZXD
+cleos --wallet-url http://localhost:8899 create account eosio sam EOS5816xzZKjt8RTKThtAWKcshZmvKUN6k5FtpSRUtuBh54swYUR7 EOS5yGV6BWw3Fa5rDv8zNWZbC9i99GvuxL6S8JuLbeLZwEkXffWmG
+
+arbitration
+owner
+Private key: 5KUeS8ejVnYig7UQaFy7uGrih1LQrGTrgxw24UNt4g1JdybhA4M
+Public key: EOS6Kt3j6zqtY7RMttXftAcxa7HcqZVtecdu6ctFz6LWepFXr4j8K
+active
+Private key: 5JbJv2rXAfYhYcNjLKnW6FJpuk5HN5Sxjq81jzC41QHQ1rEwd6Q
+Public key: EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3
+
+cleos --wallet-url http://localhost:8899 wallet import 5KUeS8ejVnYig7UQaFy7uGrih1LQrGTrgxw24UNt4g1JdybhA4M
+cleos --wallet-url http://localhost:8899 wallet import 5JbJv2rXAfYhYcNjLKnW6FJpuk5HN5Sxjq81jzC41QHQ1rEwd6Q
+cleos --wallet-url http://localhost:8899 create account eosio arbitration EOS6Kt3j6zqtY7RMttXftAcxa7HcqZVtecdu6ctFz6LWepFXr4j8K EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3
+
+
+cleos --wallet-url http://localhost:8899 set contract arbitration /Users/joneric/Documents/GitHub/eosio-dapps/arbitration -p arbitration
+
+cleos --wallet-url http://localhost:8899 push action arbitration createclaim '["arbitration"]' -p arbitration
+
+cleos get table arbitration arbitration filing
+
+cleos --wallet-url http://localhost:8899 push action arbitration adddoc '[1, "alice", "81ca9e2b8b07a6d0f80bb5ca681e272c7a473d205e44ee662cda537c16d3de00", "arbitration"]' -p arbitration
+
+cleos get table arbitration 1 document
+
+cleos --wallet-url http://localhost:8899 push action arbitration verifydoc '[1, 2, "alice"]' -p alice
+
+cleos get table arbitration 1 document --lower 2 --limit 1
+
+cleos --wallet-url http://localhost:8899 push action arbitration addclmnt '[1, "alice", "arbitration"]' -p arbitration
+
+cleos get table arbitration 1 claimant
+
+cleos --wallet-url http://localhost:8899 push action arbitration addresp '[1, "bob", "arbitration"]' -p arbitration
+
+cleos get table arbitration 1 respondent
+
+cleos --wallet-url http://localhost:8899 push action arbitration adddoc '[1, "alice", "81ca9e2b8b07a6d0f80bb5ca681e272c7a473d205e44ee662cda537c16d3de00", "arbitration"]' -p arbitration
+
+cleos --wallet-url http://localhost:8899 push action arbitration addtx '[1, "alice", "81ca9e2b8b07a6d0f80bb5ca681e272c7a473d205e44ee662cda537c16d3de00", "arbitration"]' -p arbitration
+
+cleos get table arbitration 1 transaction
+
+cleos --wallet-url http://localhost:8899 push action arbitration verifytx '[1, 7, "alice"]' -p alice
+
+cleos --wallet-url http://localhost:8899 push action arbitration addecafarb '["sam", "arbitration"]' -p arbitration
+
+cleos get table arbitration arbitration ecafarb
+
+cleos --wallet-url http://localhost:8899 push action arbitration addarb '[1, "sam", "arbitration"]' -p arbitration
+
+cleos get table arbitration 1 arbitrator
+
+cleos --wallet-url http://localhost:8899 push action arbitration setbond '[1, "100.0000 EOS", "sam"]' -p sam
+
+cleos get table arbitration 1 bond
+
+cleos --wallet-url http://localhost:8899 push action arbitration setfee '[1, "20.0000 EOS", "sam"]' -p sam
+
+cleos get table arbitration 1 fee
+
+cleos --wallet-url http://localhost:8899 push action arbitration setsubfee '["43.0000 EOS", "sam"]' -p sam
+
+cleos get table arbitration arbitration submittalfee
