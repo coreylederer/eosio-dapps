@@ -502,6 +502,9 @@ class arbitration : public eosio::contract {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_document(filing_id, doc_id), "ERROR: Document does not exist.");
             eosio_assert(is_owner<document_index>(filing_id, doc_id, owner), "ERROR: You do not own this document.");
+            eosio_assert(is_claimant(filing_id, owner) || is_respondent(filing_id, owner),
+            "ERROR: You are not authorized to verify this document.");
+            require_auth(owner);
             eosio_assert(!is_verified<document_index>(filing_id, doc_id), "ERROR: Document has already been verified.");
             verify<document_index>(filing_id, doc_id, owner);
             eosio_assert(is_verified<document_index>(filing_id, doc_id), "ERROR: Document could not be verified.");
@@ -526,6 +529,9 @@ class arbitration : public eosio::contract {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_transaction(filing_id, tx_id), "ERROR: Transaction does not exist.");
             eosio_assert(is_owner<transaction_index>(filing_id, tx_id, owner), "ERROR: You do not own this transaction.");
+            eosio_assert(is_claimant(filing_id, owner) || is_respondent(filing_id, owner),
+            "ERROR: You are not authorized to verify this transaction.");
+            require_auth(owner);
             eosio_assert(!is_verified<transaction_index>(filing_id, tx_id), "ERROR: Transaction has already been verified.");
             verify<transaction_index>(filing_id, tx_id, owner);
             eosio_assert(is_verified<transaction_index>(filing_id, tx_id), "ERROR: Transaction could not be verified.");
