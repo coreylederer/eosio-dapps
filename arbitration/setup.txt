@@ -36,7 +36,7 @@ Public key: EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
 
 cleos --wallet-url http://localhost:8899 wallet import 5KShHnnqVtKGwKsv6UhihYjM72kLfRJf4XXiF5w6PJKcvA7CTGy
 cleos --wallet-url http://localhost:8899 wallet import 5HvTyCZzCmovJLPuu17nGZHafW2qsAAAGsrTbt8LJFFNvpY4ssh
-    cleos --wallet-url http://localhost:8899 create account eosio bob EOS5LT4R2eiRhj7AgSNURby6JtqVnB26BCk8CwcBhPYzTFAkqKyzf EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
+cleos --wallet-url http://localhost:8899 create account eosio bob EOS5LT4R2eiRhj7AgSNURby6JtqVnB26BCk8CwcBhPYzTFAkqKyzf EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
 
 Sam - arbitrator
 owner
@@ -73,13 +73,13 @@ cleos --wallet-url http://localhost:8899 push action arbitration adddoc '[1, "al
 
 cleos get table arbitration 1 document
 
-cleos --wallet-url http://localhost:8899 push action arbitration verifydoc '[1, 2, "alice"]' -p alice
-
-cleos get table arbitration 1 document --lower 2 --limit 1
-
 cleos --wallet-url http://localhost:8899 push action arbitration addclmnt '[1, "alice", "arbitration"]' -p arbitration
 
 cleos get table arbitration 1 claimant
+
+cleos --wallet-url http://localhost:8899 push action arbitration verifydoc '[1, 2, "alice"]' -p alice
+
+cleos get table arbitration 1 document --lower 2 --limit 1
 
 cleos --wallet-url http://localhost:8899 push action arbitration addresp '[1, "bob", "arbitration"]' -p arbitration
 
