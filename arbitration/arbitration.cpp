@@ -24,60 +24,23 @@ class arbitration : public eosio::contract {
             return filing_id;
         }
 
-        void validate_asset(const asset quantity){
-            eosio_assert(quantity.symbol == S(4,EOS), "ERROR: Only EOS tokens may be used." );
-            eosio_assert(quantity.is_valid(), "ERROR: Not a valid asset.");
-            eosio_assert(quantity.amount > 0, "ERROR: Amount must be greater than zero.");
-        }
-
-        bool enough_for_payment(const uint64_t filing_id, const uint64_t item_id,
-                                const account_name user) {
-            payment_index payments(_self, toname(filing_id));
-            auto pymnt = payments.get(item_id);
-            balance_index balances(_self, _self);
-            auto b = balances.get(user);
-            return b.amount >= pymnt.amount;
-        }
-
-        bool enough_for_subfee(const account_name user) {
-            submittalfee_index submittalfees(_self, _self);
-            auto sf = submittalfees.get();
-            balance_index balances(_self, _self);
-            auto b = balances.get(user);
-            return b.amount >= sf.amount;
-        }
-
-        void add_to_balance(const account_name user, const asset amount) {
-            balance_index balances(_self, _self);
-            if (is_balance(user)) {
-                auto b_itr = balances.find(user);
-                balances.modify(b_itr, 0, [&](auto& b) {
-                    b.amount += amount;
-                });
-            } else {
-                balances.emplace(user, [&](auto& b) {
-                    b.amount = amount;
-                });
-            }
-        }
-
-        void sub_from_balance(const account_name user, const asset amount) {
-            balance_index balances(_self, _self);
-            if (is_balance(user)) {
-                auto b_itr = balances.find(user);
-                balances.modify(b_itr, 0, [&](auto& b) {
-                    b.amount -= amount;
-                });
-            }
-        }
-
         /**
-         * filing + ecafarb + balance
+         * filing + ecafarb + balance + subfeecredit
          */
         template<typename T, typename U>
         bool exists(U id) {
             T table(_self, _self);
             return table.find(id) != table.end();
+        }
+
+        /**
+         * document + transaction + rejection + bond + fee +
+         * payment + arbitrator + claimant + respondent
+        */
+        template <typename T, typename U>
+        bool exists(const uint64_t filing_id, U item_id) {
+            T table(_self, toname(filing_id));
+            return table.find(item_id) != table.end();
         }
 
         bool is_filing(const uint64_t filing_id) {
@@ -90,6 +53,10 @@ class arbitration : public eosio::contract {
 
         bool is_balance(const account_name user) {
             return exists<balance_index, account_name>(user);
+        }
+
+        bool is_subfeecredit(const account_name user) {
+            return exists<subfeecredit_index, account_name>(user);
         }
 
         bool is_suspended(const uint64_t filing_id) {
@@ -126,16 +93,6 @@ class arbitration : public eosio::contract {
             filing_index filings(_self, _self);
             auto f = filings.get(filing_id);
             return f.Case == 1;
-        }
-
-        /**
-         * document + transaction + rejection + bond + fee +
-         * payment + arbitrator + claimant + respondent
-        */
-        template <typename T, typename U>
-        bool exists(const uint64_t filing_id, U item_id) {
-            T table(_self, toname(filing_id));
-            return table.find(item_id) != table.end();
         }
 
         bool is_arbitrator(const uint64_t filing_id, const account_name arb) {
@@ -195,6 +152,12 @@ class arbitration : public eosio::contract {
             return item.owner == owner;
         }
 
+        void validate_asset(const asset quantity){
+            eosio_assert(quantity.symbol == S(4,EOS), "ERROR: Only EOS tokens may be used." );
+            eosio_assert(quantity.is_valid(), "ERROR: Not a valid asset.");
+            eosio_assert(quantity.amount > 0, "ERROR: Amount must be greater than zero.");
+        }
+
         /**
          * document + transaction
          */        
@@ -247,7 +210,7 @@ class arbitration : public eosio::contract {
         /**
          * payment
          */
-        void add(const uint64_t filing_id, const uint64_t id,
+        void add_payment(const uint64_t filing_id, const uint64_t id,
                  const account_name owner, const asset amount) {
             payment_index payments(_self, toname(filing_id));
             payments.emplace(_self, [&](auto& pymnt) {
@@ -390,19 +353,92 @@ class arbitration : public eosio::contract {
                     f.current = 0;
                 });
             }
-}
+        }
 
-        /**
-         * submittalfee
-         */
         void setsf(const asset amount, const account_name authority) {
             submittalfee_index sf(_self,_self);
             submittalfee new_submittalfee{amount};
             sf.set(new_submittalfee,authority);
         }
 
-        void paysf(const account_name user) {
-            
+        bool enough_for_payment(const uint64_t filing_id, const uint64_t item_id,
+                                const account_name user) {
+            payment_index payments(_self, toname(filing_id));
+            auto pymnt = payments.get(item_id);
+            balance_index balances(_self, _self);
+            auto b = balances.get(user);
+            return b.amount >= pymnt.amount;
+        }
+
+        bool enough_for_subfee(const account_name user) {
+            submittalfee_index submittalfees(_self, _self);
+            auto sf = submittalfees.get();
+            balance_index balances(_self, _self);
+            auto b = balances.get(user);
+            return b.amount >= sf.amount;
+        }
+
+        void add_balance(const account_name user, const asset amount) {
+            balance_index balances(_self, _self);
+            if (is_balance(user)) {
+                auto b_itr = balances.find(user);
+                balances.modify(b_itr, 0, [&](auto& b) {
+                    b.amount += amount;
+                });
+            } else {
+                balances.emplace(user, [&](auto& b) {
+                    b.amount = amount;
+                });
+            }
+        }
+
+        void sub_balance(const account_name user, const asset amount) {
+            eosio_assert(is_balance(user),"ERROR: No balance was found.");
+            balance_index balances(_self, _self);
+            auto b_itr = balances.find(user);
+            if (b_itr->amount == amount) {
+                balances.erase(b_itr);
+            } else {
+                balances.modify(b_itr, user, [&](auto& b) {
+                    b.amount -= amount;
+                });  
+            }
+        }
+
+        void increment_sfcredit(const account_name user) {
+            subfeecredit_index subfeecredits(_self, _self);
+            auto sfcredit_itr = subfeecredits.find(user);
+            if (is_subfeecredit(user)) {
+                subfeecredits.modify(sfcredit_itr, 0, [&](auto& sfc) {
+                    sfc.credits++;
+                });
+            } else {
+                subfeecredits.emplace(user, [&](auto* sfc) {
+                    sfc.credits = 1;
+                });
+            }
+        }
+
+        void decrement_sfcredit(const account_name user) {
+            subfeecredit_index subfeecredits(_self, _self);
+            auto sfcredit_itr = subfeecredits.find(user);
+            if (sfcredit_itr->credits > 1) {
+                subfeecredits.modify(sfcredit_itr, 0, [&](auto& sfc) {
+                    sfc.credits--;
+                });
+            } else {
+                subfeecredits.erase(sfcredit_itr);
+            }
+        }
+
+        asset get_sf() {
+            submittalfee_index submittalfees(_self, _self);
+            return submittalfees.get().amount;
+        }
+
+        asset get_payment(const uint64_t filing_id, const uint64_t item_id) {
+            payment_index payments(_self, toname(filing_id));
+            return payments.get(item_id).amount;
         }
 
         //@abi action
@@ -697,7 +733,7 @@ class arbitration : public eosio::contract {
             require_auth(authority);
             validate_asset(amount);
             const uint64_t pd_id = next_index_id();
-            add(filing_id, pd_id, user, amount);
+            add_payment(filing_id, pd_id, user, amount);
             print("Payment due #", pd_id, " was successfully set.");
         }
 
@@ -710,6 +746,9 @@ class arbitration : public eosio::contract {
         void paysubfee(const account_name user) {
             require_auth(user);
             eosio_assert(enough_for_subfee(user),"ERROR: Your balance is below the submittal fee amount.");
+            sub_balance(user, get_sf());
+            add_balance(_self, get_sf());
+            increment_sfcredit(user);
         }
 
         //@abit action
