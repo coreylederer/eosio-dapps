@@ -4,16 +4,11 @@
 #include <eosiolib/singleton.hpp>
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
-#include <string>
-
-#define DEBUG
-#include "logger.hpp"
 
 using eosio::const_mem_fun;
 using eosio::indexed_by;
 using eosio::print;
 using eosio::asset;
-using std::string;
 
 class arbitration : public eosio::contract {
     public:
