@@ -374,6 +374,7 @@ class arbitration : public eosio::contract {
             filings.emplace(_self, [&](auto& f) {
                 f.id = id;
             });
+            eosio_assert(is_filing(id), "ERROR: Filing could not be created.");
         }
 
         //@abi action
@@ -381,6 +382,7 @@ class arbitration : public eosio::contract {
             filing_index filings(_self, _self);
             auto itr = filings.find(id);
             filings.erase(itr);
+            eosio_assert(!is_filing(id), "ERROR: Filing could not be deleted.");
         }
         //@abi action
         void opencase(const uint64_t filing_id, const account_name authority) {
@@ -809,4 +811,4 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee) )
+EOSIO_ABI( arbitration, (testadd)(testremove)(createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee) )
