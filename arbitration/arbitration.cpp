@@ -369,6 +369,20 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void testadd(const uint64_t id) {
+            filing_index filings(_self, _self);
+            filings.emplace(_self, [&](auto& f) {
+                f.id = id;
+            });
+        }
+
+        //@abi action
+        void testremove(const uint64_t id) {
+            filing_index filings(_self, _self);
+            auto itr = filings.find(id);
+            filings.erase(itr);
+        }
+        //@abi action
         void opencase(const uint64_t filing_id, const account_name authority) {
             eosio_assert(is_ecafarb(authority) || _self == authority,
             "ERROR: You are not authorized to open a case.");
