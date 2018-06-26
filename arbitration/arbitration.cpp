@@ -14,10 +14,6 @@ class arbitration : public eosio::contract {
     public:
         explicit arbitration(action_name self) : contract(self) {}
 
-        /**
-         * Converts a unint64_t to a name. The returned value is used
-         * as the scope of a multi index table.
-         */
         eosio::name toname(uint64_t value) {
             eosio::name filing_id;
             filing_id.value = value;
@@ -166,7 +162,7 @@ class arbitration : public eosio::contract {
                     const account_name owner) {
             T table(_self, toname(filing_id));
             auto itr = table.find(item_id);
-            table.modify(itr, 0, [&](auto& item) {
+            table.modify(itr, _self, [&](auto& item) {
                 item.confirmed_by_owner = true;
             }); 
         }
@@ -239,7 +235,7 @@ class arbitration : public eosio::contract {
         void suspend(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.suspended = 1;
             });
         }
@@ -250,7 +246,7 @@ class arbitration : public eosio::contract {
         void unsuspend(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.suspended = 0;
             });
         }
@@ -261,7 +257,7 @@ class arbitration : public eosio::contract {
         void reject(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.rejected = 1;
             });
         }
@@ -272,7 +268,7 @@ class arbitration : public eosio::contract {
         void drop(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.dropped = 1;
             });
         }
@@ -283,7 +279,7 @@ class arbitration : public eosio::contract {
         void undrop(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.dropped = 0;
             });
         }
@@ -294,7 +290,7 @@ class arbitration : public eosio::contract {
         void close(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.closed = 1;
             });
         }
@@ -305,7 +301,7 @@ class arbitration : public eosio::contract {
         void unclose(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.closed = 0;
             });
         }
@@ -316,7 +312,7 @@ class arbitration : public eosio::contract {
         void setasclaim(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.Claim = 1;
             });
         }
@@ -327,7 +323,7 @@ class arbitration : public eosio::contract {
         void setascase(const uint64_t filing_id) {
             filing_index filings(_self, _self);
             auto itr = filings.find(filing_id);
-            filings.modify(itr, 0, [&](auto& f) {
+            filings.modify(itr, _self, [&](auto& f) {
                 f.Claim = 0;
                 f.Case = 1;
             });
@@ -338,7 +334,7 @@ class arbitration : public eosio::contract {
             if (bonds.end() != bonds.begin()) {
                 auto current_index = bonds.get_index<N(bycurrent)>();
                 auto currents_itr = current_index.find(1);
-                current_index.modify(currents_itr, 0, [&](auto& b) {
+                current_index.modify(currents_itr, _self, [&](auto& b) {
                     b.current = 0;
                 });
             }
@@ -349,16 +345,16 @@ class arbitration : public eosio::contract {
             if (fees.end() != fees.begin()) {
                 auto current_index = fees.get_index<N(bycurrent)>();
                 auto currents_itr = current_index.find(1);
-                current_index.modify(currents_itr, 0, [&](auto& f) {
+                current_index.modify(currents_itr, _self, [&](auto& f) {
                     f.current = 0;
                 });
             }
         }
 
-        void setsf(const asset amount, const account_name authority) {
+        void setsf(const asset amount) {
             submittalfee_index sf(_self,_self);
             submittalfee new_submittalfee{amount};
-            sf.set(new_submittalfee,authority);
+            sf.set(new_submittalfee,_self);
         }
 
         bool enough_for_payment(const uint64_t filing_id, const uint64_t item_id,
@@ -382,24 +378,24 @@ class arbitration : public eosio::contract {
             balance_index balances(_self, _self);
             if (is_balance(user)) {
                 auto b_itr = balances.find(user);
-                balances.modify(b_itr, 0, [&](auto& b) {
+                balances.modify(b_itr, _self, [&](auto& b) {
                     b.amount += amount;
                 });
             } else {
-                balances.emplace(user, [&](auto& b) {
+                balances.emplace(_self, [&](auto& b) {
+                    b.id = user;
                     b.amount = amount;
                 });
             }
         }
 
         void sub_balance(const account_name user, const asset amount) {
-            eosio_assert(is_balance(user),"ERROR: No balance was found.");
             balance_index balances(_self, _self);
             auto b_itr = balances.find(user);
             if (b_itr->amount == amount) {
                 balances.erase(b_itr);
             } else {
-                balances.modify(b_itr, user, [&](auto& b) {
+                balances.modify(b_itr, _self, [&](auto& b) {
                     b.amount -= amount;
                 });  
             }
@@ -409,11 +405,12 @@ class arbitration : public eosio::contract {
             subfeecredit_index subfeecredits(_self, _self);
             auto sfcredit_itr = subfeecredits.find(user);
             if (is_subfeecredit(user)) {
-                subfeecredits.modify(sfcredit_itr, 0, [&](auto& sfc) {
+                subfeecredits.modify(sfcredit_itr, _self, [&](auto& sfc) {
                     sfc.credits++;
                 });
             } else {
-                subfeecredits.emplace(user, [&](auto* sfc) {
+                subfeecredits.emplace(_self, [&](auto* sfc) {
+                    sfc.id = user;
                     sfc.credits = 1;
                 });
             }
@@ -423,7 +420,7 @@ class arbitration : public eosio::contract {
             subfeecredit_index subfeecredits(_self, _self);
             auto sfcredit_itr = subfeecredits.find(user);
             if (sfcredit_itr->credits > 1) {
-                subfeecredits.modify(sfcredit_itr, 0, [&](auto& sfc) {
+                subfeecredits.modify(sfcredit_itr, _self, [&](auto& sfc) {
                     sfc.credits--;
                 });
             } else {
@@ -436,7 +433,7 @@ class arbitration : public eosio::contract {
             return submittalfees.get().amount;
         }
 
-        asset get_payment(const uint64_t filing_id, const uint64_t item_id) {
+        asset get_ad(const uint64_t filing_id, const uint64_t item_id) {
             payment_index payments(_self, toname(filing_id));
             return payments.get(item_id).amount;
         }
@@ -447,7 +444,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to create a claim.");
             require_auth(authority);
             const uint64_t id = next_index_id();
-            add<filing_index>(id);
+            add<filing_index, uint64_t>(id);
             eosio_assert(is_filing(id), "ERROR: Filing could not be created.");
             setasclaim(id);
             eosio_assert(is_claim(id), "ERROR: Filing could be set as claim.");
@@ -642,6 +639,8 @@ class arbitration : public eosio::contract {
         void addarb(const uint64_t filing_id, const account_name arb, const account_name authority) {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_ecafarb(arb), "ERROR: Not an authorized arbitrator.");
+            eosio_assert(!is_claimant(filing_id, arb), "ERROR: That person is already a claimant.");
+            eosio_assert(!is_respondent(filing_id, arb), "ERROR: That person is already a respondent.");
             eosio_assert(!is_arbitrator(filing_id, arb), "ERROR: That person is already an arbitrator.");
             eosio_assert(_self == authority, "ERROR: You are not authorized to add an arbitrator.");
             require_auth(authority);
@@ -667,6 +666,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to add a claimant.");
             eosio_assert(!is_claimant(filing_id, clmnt), "ERROR: That person is already a claimant.");
             eosio_assert(!is_respondent(filing_id, clmnt), "ERROR: That person is already a respondent.");
+            eosio_assert(!is_arbitrator(filing_id, clmnt), "ERROR: That person is already an arbitrator.");
             require_auth(authority);
             add<claimant_index>(filing_id, clmnt);
             eosio_assert(is_claimant(filing_id, clmnt), "ERROR: Claimant could not be added.");
@@ -680,6 +680,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to add a respondent.");
             eosio_assert(!is_claimant(filing_id, resp), "ERROR: That person is already a claimant.");
             eosio_assert(!is_respondent(filing_id, resp), "ERROR: That person is already a respondent.");
+            eosio_assert(!is_arbitrator(filing_id, resp), "ERROR: That person is already an arbitrator.");
             require_auth(authority);
             add<respondent_index>(filing_id, resp);
             eosio_assert(is_respondent(filing_id, resp), "ERROR: respondent could not be added.");
@@ -720,7 +721,7 @@ class arbitration : public eosio::contract {
             "ERROR: You are not authorized to set the submittal fee.");
             require_auth(authority);
             validate_asset(amount);
-            setsf(amount, authority);
+            setsf(amount);
             print("Submittal Fee was successfully set to ", amount);
         }
 
@@ -745,7 +746,9 @@ class arbitration : public eosio::contract {
         //@abi action
         void paysubfee(const account_name user) {
             require_auth(user);
-            eosio_assert(enough_for_subfee(user),"ERROR: Your balance is below the submittal fee amount.");
+            eosio_assert(is_balance(user),"ERROR: No balance was found.");
+            eosio_assert(enough_for_subfee(user),
+            "ERROR: Your balance is below the submittal fee amount.");
             sub_balance(user, get_sf());
             add_balance(_self, get_sf());
             increment_sfcredit(user);
