@@ -2,11 +2,13 @@
  *  by Jon-Eric Cook
  */
 #include <eosiolib/singleton.hpp>
+#include <eosiolib/currency.hpp>
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/asset.hpp>
 
 using eosio::const_mem_fun;
 using eosio::indexed_by;
+using eosio::currency;
 using eosio::print;
 using eosio::asset;
 
@@ -355,6 +357,11 @@ class arbitration : public eosio::contract {
             submittalfee_index sf(_self,_self);
             submittalfee new_submittalfee{amount};
             sf.set(new_submittalfee,_self);
+        }
+
+        void settopaid(const uint64_t filing_id, const uint64_t item_id,
+                       const account_name user) {
+            payment_index payments(_self, _self);
         }
 
         bool enough_for_payment(const uint64_t filing_id, const uint64_t item_id,
@@ -757,8 +764,75 @@ class arbitration : public eosio::contract {
         //@abit action
         void payamountdue(const uint64_t filing_id, const uint64_t item_id, const account_name user) {
             require_auth(user);
+            eosio_assert(is_balance(user),"ERROR: No balance was found.");
+            eosio_assert(is_payment(filing_id, item_id),"ERROR: No payment was found.");
             eosio_assert(enough_for_payment(filing_id, item_id, user),
             "ERROR: Your balance is below the amount due.");
+            sub_balance(user, get_sf());
+            add_balance(_self, get_sf());
+        }
+
+        //@abi action
+        void decsfcredits(const uint64_t filing_id, const account_name user,
+                          const account_name authority) {
+            eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
+            eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
+            "ERROR: You are not authorized to set the amount due.");
+            eosio_assert(is_claimant(filing_id, user) ||
+                         is_respondent(filing_id, user),
+            "ERROR: That user is not related to this filing.");
+            eosio_assert(is_subfeecredit(user),
+            "ERROR: That user does not have any submittal fee credits.");
+            decrement_sfcredit(user);
+        }
+
+        //@abi action
+        void withdraw(const account_name user) {
+            require_auth(user);
+            eosio_assert(is_balance(user),"ERROR: No balance was found.");
+            balance_index balances(_self, _self);
+            auto b_itr = balances.find(user);
+            
+            eosio::action {
+                eosio::permission_level{_self, N(active)},
+                N(eosio.token),
+                N(transfer),
+                eosio::currency::transfer {
+                    .from=_self, .to=user, .quantity=b_itr->amount,
+                    .memo="Withdrawl from ECAF Arbitration Smart Contract."}
+            }.send(); 
+
+            balances.erase(b_itr);
+        }
+
+        //@abi action
+        void ecafwithdraw(const account_name user) {
+            require_auth(_self);
+            eosio_assert(is_balance(_self),"ERROR: No balance was found.");
+            balance_index balances(_self, _self);
+            auto b_itr = balances.find(_self);
+            
+            eosio::action {
+                eosio::permission_level{_self, N(active)},
+                N(eosio.token),
+                N(transfer),
+                eosio::currency::transfer {
+                    .from=_self, .to=user, .quantity=b_itr->amount,
+                    .memo="Withdrawl from ECAF Arbitration Smart Contract."}
+            }.send(); 
+
+            balances.erase(b_itr);
+        }
+
+        //@abi action
+        void transferhandler(const account_name code) {
+            eosio_assert(code == N(eosio.token),
+            "ERROR: Cannot accept non-eosio.token deposit.");
+            auto data = eosio::unpack_action_data<currency::transfer>();
+            eosio_assert(data.from != _self, "ERROR: From account cannot be _self.");
+            eosio_assert(data.to == _self, "ERROR: To account must be _self.");
+            validate_asset(data.quantity);
+            add_balance(_self, data.quantity);
         }
 
     private:
@@ -939,4 +1013,4 @@ class arbitration : public eosio::contract {
         }
 };
 
-EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue) )
+EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue)(decsfcredits)(withdraw)(ecafwithdraw)(transferhandler) )
