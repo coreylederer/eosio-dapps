@@ -829,10 +829,10 @@ class arbitration : public eosio::contract {
             eosio_assert(code == N(eosio.token),
             "ERROR: Cannot accept non-eosio.token deposit.");
             auto data = eosio::unpack_action_data<currency::transfer>();
-            eosio_assert(data.from != _self, "ERROR: From account cannot be _self.");
-            eosio_assert(data.to == _self, "ERROR: To account must be _self.");
-            validate_asset(data.quantity);
-            add_balance(data.from, data.quantity);
+            if (data.to == _self) {
+                validate_asset(data.quantity);
+                add_balance(data.from, data.quantity);
+            }
         }
 
         void runit(const uint64_t code, const account_name action) {

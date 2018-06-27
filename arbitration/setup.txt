@@ -6,7 +6,7 @@ cleos --wallet-url http://localhost:8899 wallet create
 
 Save password to use in the future to unlock this wallet.
 Without password imported keys will not be retrievable.
-"PW5KBRBSE7DDQ2Vv5BPWownmidymez71kffNASqjywYj5Z7qVteDG"
+"PW5KZnv4zy9GvLrXgdWMi1DSD5rcfKs5RKyKAPVF4ZbKGkjUm2dkv"
 
 
 eosio
@@ -36,7 +36,7 @@ Public key: EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
 
 cleos --wallet-url http://localhost:8899 wallet import 5KShHnnqVtKGwKsv6UhihYjM72kLfRJf4XXiF5w6PJKcvA7CTGy
 cleos --wallet-url http://localhost:8899 wallet import 5HvTyCZzCmovJLPuu17nGZHafW2qsAAAGsrTbt8LJFFNvpY4ssh
-    cleos --wallet-url http://localhost:8899 create account eosio bob EOS5LT4R2eiRhj7AgSNURby6JtqVnB26BCk8CwcBhPYzTFAkqKyzf EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
+cleos --wallet-url http://localhost:8899 create account eosio bob EOS5LT4R2eiRhj7AgSNURby6JtqVnB26BCk8CwcBhPYzTFAkqKyzf EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395
 
 Sam - arbitrator
 owner
@@ -61,6 +61,18 @@ Public key: EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3
 cleos --wallet-url http://localhost:8899 wallet import 5KUeS8ejVnYig7UQaFy7uGrih1LQrGTrgxw24UNt4g1JdybhA4M
 cleos --wallet-url http://localhost:8899 wallet import 5JbJv2rXAfYhYcNjLKnW6FJpuk5HN5Sxjq81jzC41QHQ1rEwd6Q
 cleos --wallet-url http://localhost:8899 create account eosio arbitration EOS6Kt3j6zqtY7RMttXftAcxa7HcqZVtecdu6ctFz6LWepFXr4j8K EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3
+
+eosio.token
+owner
+Private key: 5JYe1HvfY3bZXbTYttDS3ALavW2urPpTPG1y7xT2acANcdQVDay
+Public key: EOS5qTePUNaxTcbkgF6bK2adwPeDUarJdYUH1symG9X976fPRRjCd
+active
+Private key: 5KboJXskDNVCfYd6uzJMxHKDrcKRWfBKzdCxSw5QjCmijrGAqJh
+Public key: EOS6cs7UdWn5JWc8V7WUgSJPFgAe7CXs5VrdnBfi4hiBxbEg8icPD
+
+cleos --wallet-url http://localhost:8899 wallet import 5JYe1HvfY3bZXbTYttDS3ALavW2urPpTPG1y7xT2acANcdQVDay
+cleos --wallet-url http://localhost:8899 wallet import 5KboJXskDNVCfYd6uzJMxHKDrcKRWfBKzdCxSw5QjCmijrGAqJh
+cleos --wallet-url http://localhost:8899 create account eosio eosio.token EOS5qTePUNaxTcbkgF6bK2adwPeDUarJdYUH1symG9X976fPRRjCd EOS6cs7UdWn5JWc8V7WUgSJPFgAe7CXs5VrdnBfi4hiBxbEg8icPD
 
 
 cleos --wallet-url http://localhost:8899 set contract arbitration /Users/joneric/Documents/GitHub/eosio-dapps/arbitration -p arbitration
@@ -130,3 +142,14 @@ cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "sam",
 cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "doug", "1000.0000 EOS", "" ]' -p eosio
 
 cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "arbitration", "1000.0000 EOS", "" ]' -p eosio
+
+
+cleos --wallet-url http://localhost:8899 transfer alice arbitration "10.0000 EOS" "Deposit for claim." -p alice
+
+cleos --wallet-url http://localhost:8899 push action arbitration setsubfee '["2.0000 EOS",arbitration]' -p arbitration
+
+cleos --wallet-url http://localhost:8899 push action arbitration paysubfee '[alice]' -p alice
+
+cleos --wallet-url http://localhost:8899 push action arbitration withdraw '[alice]' -p alice
+
+cleos --wallet-url http://localhost:8899 set account permission arbitration active '{"threshold": 1,"keys": [{"key": "EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3","weight": 1}],"accounts": [{"permission":{"actor":"arbitration","permission":"eosio.code"},"weight":1}]}' owner
