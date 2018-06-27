@@ -1,6 +1,7 @@
 /**
  *  by Jon-Eric Cook
  */
+
 #include <eosiolib/singleton.hpp>
 #include <eosiolib/currency.hpp>
 #include <eosiolib/eosio.hpp>
@@ -806,7 +807,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void ecafwithdraw(const account_name user) {
+        void ecafwithdraw(const account_name to) {
             require_auth(_self);
             eosio_assert(is_balance(_self),"ERROR: No balance was found.");
             balance_index balances(_self, _self);
@@ -817,7 +818,7 @@ class arbitration : public eosio::contract {
                 N(eosio.token),
                 N(transfer),
                 eosio::currency::transfer {
-                    .from=_self, .to=user, .quantity=b_itr->amount,
+                    .from=_self, .to=to, .quantity=b_itr->amount,
                     .memo="Withdrawl from ECAF Arbitration Smart Contract."}
             }.send(); 
 
@@ -825,7 +826,7 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
-        void transferhandler(const account_name code) {
+        void transferhandler(const uint64_t code) {
             eosio_assert(code == N(eosio.token),
             "ERROR: Cannot accept non-eosio.token deposit.");
             auto data = eosio::unpack_action_data<currency::transfer>();
@@ -833,6 +834,17 @@ class arbitration : public eosio::contract {
             eosio_assert(data.to == _self, "ERROR: To account must be _self.");
             validate_asset(data.quantity);
             add_balance(_self, data.quantity);
+        }
+
+        void apply(const uint64_t code, const account_name action) {
+            switch(action) {
+                case N(transfer): return transferhandler(code);
+            }
+            auto& thiscontract = *this;
+            switch( action ) {
+                EOSIO_API( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue)(decsfcredits)(withdraw)(ecafwithdraw)(transferhandler) )
+                return;
+            };
         }
 
     private:
@@ -1013,4 +1025,11 @@ class arbitration : public eosio::contract {
         }
 };
 
+extern "C" {
+    void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
+        arbitration  a( receiver );
+        a.apply(code, action);
+        eosio_exit(0);
+    }
+}
 EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue)(decsfcredits)(withdraw)(ecafwithdraw)(transferhandler) )
