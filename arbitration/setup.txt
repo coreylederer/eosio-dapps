@@ -112,3 +112,21 @@ cleos get table arbitration 1 fee
 cleos --wallet-url http://localhost:8899 push action arbitration setsubfee '["43.0000 EOS", "sam"]' -p sam
 
 cleos get table arbitration arbitration submittalfee
+
+
+cleos --wallet-url http://localhost:8899 set contract eosio /Users/joneric/eos/build/contracts/eosio.bios -p eosio
+
+cleos --wallet-url http://localhost:8899 set contract eosio.token /Users/joneric/eos/build/contracts/eosio.token -p eosio.token
+
+
+cleos --wallet-url http://localhost:8899 push action eosio.token create '[ "eosio", "1000000000.0000 EOS", 0, 0, 0]' -p eosio.token
+
+cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "alice", "1000.0000 EOS", "" ]' -p eosio
+
+cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "bob", "1000.0000 EOS", "" ]' -p eosio
+
+cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "sam", "1000.0000 EOS", "" ]' -p eosio
+
+cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "doug", "1000.0000 EOS", "" ]' -p eosio
+
+cleos --wallet-url http://localhost:8899 push action eosio.token issue '[ "arbitration", "1000.0000 EOS", "" ]' -p eosio
