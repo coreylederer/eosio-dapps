@@ -110,6 +110,10 @@ class arbitration : public eosio::contract {
             return exists<document_index, uint64_t>(filing_id, doc);
         }
 
+        bool is_ruling(const uint64_t filing_id, const uint64_t rl) {
+            return exists<ruling_index, uint64_t>(filing_id, rl);
+        }
+
         bool is_rejection(const uint64_t filing_id, const uint64_t rej) {
             return exists<rejection_index, uint64_t>(filing_id, rej);
         }
@@ -193,7 +197,7 @@ class arbitration : public eosio::contract {
         }
 
         /**
-         * document + rejection + transaction
+         * document + ruling + rejection + transaction
          */ 
         template <typename T>
         void add(const uint64_t filing_id, const uint64_t id,
@@ -644,6 +648,19 @@ class arbitration : public eosio::contract {
         }
 
         //@abi action
+        void addruling(const uint64_t filing_id, const account_name owner, const checksum256 contents,
+                       const account_name authority) {
+            eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
+            eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
+            "ERROR: You are not authorized to add a ruling to this case.");
+            require_auth(authority);
+            const uint64_t ruling_id = next_index_id();
+            add<ruling>(filing_id, ruling_id, owner, contents);
+            eosio_assert(is_ruling(filing_id, ruling_id), "ERROR: Ruling could not be added.");
+            print("Ruling #", ruling_id, " was successfully added.");
+        }
+
+        //@abi action
         void addarb(const uint64_t filing_id, const account_name arb, const account_name authority) {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_ecafarb(arb), "ERROR: Not an authorized arbitrator.");
@@ -919,6 +936,16 @@ class arbitration : public eosio::contract {
         typedef eosio::multi_index< N(document), document,
             indexed_by< N(byowner), const_mem_fun<document, account_name, &document::by_owner> >
             > document_index;
+
+        //@abi table ruling i64
+        struct ruling {
+            uint64_t id;
+            account_name owner;
+            checksum256 contents;
+            uint64_t primary_key() const { return id; }
+            EOSLIB_SERIALIZE( ruling, (id)(owner)(contents) )
+        };
+        typedef eosio::multi_index< N(ruling), ruling > ruling_index;
 
         //@abi table rejection i64
         struct rejection {
