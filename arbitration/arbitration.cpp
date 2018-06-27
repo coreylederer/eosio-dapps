@@ -832,7 +832,7 @@ class arbitration : public eosio::contract {
             eosio_assert(data.from != _self, "ERROR: From account cannot be _self.");
             eosio_assert(data.to == _self, "ERROR: To account must be _self.");
             validate_asset(data.quantity);
-            add_balance(_self, data.quantity);
+            add_balance(data.from, data.quantity);
         }
 
         void runit(const uint64_t code, const account_name action) {
@@ -842,7 +842,6 @@ class arbitration : public eosio::contract {
             auto& thiscontract = *this;
             switch( action ) {
                 EOSIO_API( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue)(decsfcredits)(withdraw)(ecafwithdraw) )
-                return;
             };
         }
 
