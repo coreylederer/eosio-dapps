@@ -2,7 +2,6 @@
  *  by Jon-Eric Cook
  */
 
-#include <eosio.token/eosio.token.hpp>
 #include <eosiolib/singleton.hpp>
 #include <eosiolib/currency.hpp>
 #include <eosiolib/eosio.hpp>
@@ -795,8 +794,14 @@ class arbitration : public eosio::contract {
             balance_index balances(_self, _self);
             auto b_itr = balances.find(user);
             
-            INLINE_ACTION_SENDER(eosio::token, transfer)( N(eosio.token), {{_self,N(active)}},
-            {_self, user, b_itr->amount, std::string("Withdrawl from ECAF Arbitration Smart Contract.")} );  
+            eosio::action {
+                eosio::permission_level{_self, N(active)},
+                N(eosio.token),
+                N(transfer),
+                eosio::currency::transfer {
+                    .from=_self, .to=user, .quantity=b_itr->amount,
+                    .memo="Withdrawl from ECAF Arbitration Smart Contract."}
+            }.send();  
 
             balances.erase(b_itr);
         }
@@ -808,8 +813,14 @@ class arbitration : public eosio::contract {
             balance_index balances(_self, _self);
             auto b_itr = balances.find(_self);
 
-            INLINE_ACTION_SENDER(eosio::token, transfer)( N(eosio.token), {{_self,N(active)}},
-            {_self, to, b_itr->amount, std::string("Withdrawl from ECAF Arbitration Smart Contract.")} );
+            eosio::action {
+                eosio::permission_level{_self, N(active)},
+                N(eosio.token),
+                N(transfer),
+                eosio::currency::transfer {
+                    .from=_self, .to=to, .quantity=b_itr->amount,
+                    .memo="Withdrawl from ECAF Arbitration Smart Contract."}
+            }.send();
 
             balances.erase(b_itr);
         }
