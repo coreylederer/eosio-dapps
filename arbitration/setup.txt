@@ -148,8 +148,10 @@ cleos --wallet-url http://localhost:8899 transfer alice arbitration "10.0000 EOS
 
 cleos --wallet-url http://localhost:8899 push action arbitration setsubfee '["2.0000 EOS",arbitration]' -p arbitration
 
-cleos --wallet-url http://localhost:8899 push action arbitration paysubfee '[alice]' -p alice
+cleos --wallet-url http://localhost:8899 push action arbitration paysubfee '["alice"]' -p alice
 
-cleos --wallet-url http://localhost:8899 push action arbitration withdraw '[alice]' -p alice
+cleos --wallet-url http://localhost:8899 push action arbitration withdraw '["alice"]' -p alice
+
+cleos --wallet-url http://localhost:8899 push action arbitration ecafwithdraw '["sam"]' -p arbitration
 
 cleos --wallet-url http://localhost:8899 set account permission arbitration active '{"threshold": 1,"keys": [{"key": "EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3","weight": 1}],"accounts": [{"permission":{"actor":"arbitration","permission":"eosio.code"},"weight":1}]}' owner
