@@ -6,7 +6,7 @@ cleos --wallet-url http://localhost:8899 wallet create
 
 Save password to use in the future to unlock this wallet.
 Without password imported keys will not be retrievable.
-"PW5KZnv4zy9GvLrXgdWMi1DSD5rcfKs5RKyKAPVF4ZbKGkjUm2dkv"
+"PW5JtkWZe1e5mHAY6cs7XjLBjEz35cpnoGPPrQ2RpJFPAH4Exh5GW"
 
 
 eosio
@@ -155,3 +155,20 @@ cleos --wallet-url http://localhost:8899 push action arbitration withdraw '["ali
 cleos --wallet-url http://localhost:8899 push action arbitration ecafwithdraw '["sam"]' -p arbitration
 
 cleos --wallet-url http://localhost:8899 set account permission arbitration active '{"threshold": 1,"keys": [{"key": "EOS5ct4PaxviT8EGKt3DCjnsdEjMctysTgiBTT13RQ46XsBaY13k3","weight": 1}],"accounts": [{"permission":{"actor":"arbitration","permission":"eosio.code"},"weight":1}]}' owner
+
+cleos --wallet-url http://localhost:8899 set account permission alice owner '{"threshold" : 100, "keys" : [{"key": "EOS5yGV6BWw3Fa5rDv8zNWZbC9i99GvuxL6S8JuLbeLZwEkXffWmG","weight": 50}, {"key": "EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395","weight": 50}]}' -p alice@owner
+
+cleos --wallet-url http://localhost:8899 set account permission alice active '{"threshold" : 100, "keys" : [{"key": "EOS5yGV6BWw3Fa5rDv8zNWZbC9i99GvuxL6S8JuLbeLZwEkXffWmG","weight": 50}, {"key": "EOS6iLK2UuhUetFeYnS7eY4SNksckspcabcfA9LXmFaQ2iE6Qy395","weight": 50}]}' owner
+
+cleos --wallet-url http://localhost:8899 transfer alice bob "2.0000 EOS" -p alice
+
+cleos multisig propose '{"proposer":"alice","proposal_name":"transfertobob","requested":[{"sam","active"},{"bob","active"}],
+
+"trx":"{"context_free_actions":"",
+        "actions":"{"account":"eosio.token","name":"transfer","authorization":"[{"alice","active"}]",}"}'
+
+
+"action":"{"account":"eosio.token",
+           "name":"transfer",
+           "authorization":"[{"alice":"active"}]",
+           "data":""}"
