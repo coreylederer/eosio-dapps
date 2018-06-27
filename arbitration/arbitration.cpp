@@ -417,7 +417,7 @@ class arbitration : public eosio::contract {
                     sfc.credits++;
                 });
             } else {
-                subfeecredits.emplace(_self, [&](auto* sfc) {
+                subfeecredits.emplace(_self, [&](auto& sfc) {
                     sfc.id = user;
                     sfc.credits = 1;
                 });
@@ -836,7 +836,7 @@ class arbitration : public eosio::contract {
             add_balance(_self, data.quantity);
         }
 
-        void apply(const uint64_t code, const account_name action) {
+        void runit(const uint64_t code, const account_name action) {
             switch(action) {
                 case N(transfer): return transferhandler(code);
             }
@@ -1028,8 +1028,8 @@ class arbitration : public eosio::contract {
 extern "C" {
     void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
         arbitration  a( receiver );
-        a.apply(code, action);
+        a.runit(code, action);
         eosio_exit(0);
     }
 }
-EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue)(decsfcredits)(withdraw)(ecafwithdraw)(transferhandler) )
+//EOSIO_ABI( arbitration, (createclaim)(opencase)(closecase)(unclosecase)(rejectclaim)(unrjctclaim)(suspendcase)(unsspndcase)(dropcase)(undropcase)(adddoc)(verifydoc)(addtx)(verifytx)(addrjctn)(addarb)(addecafarb)(addclmnt)(addresp)(setbond)(setfee)(setsubfee)(setpymntdue)(verifyuser)(paysubfee)(payamountdue)(decsfcredits)(withdraw)(ecafwithdraw)(transferhandler) )
