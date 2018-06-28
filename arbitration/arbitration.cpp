@@ -851,9 +851,20 @@ class arbitration : public eosio::contract {
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_arbitrator(filing_id, authority) || _self == authority,
             "ERROR: You are not authorized to set the amount due.");
-            eosio_assert(is_award(filing_id, user),"ERROR: User is already in the award table.");
+            eosio_assert(is_award(filing_id, user),"ERROR: User is not in the award table.");
             require_auth(authority);
+            const asset aw = get_award(filing_id, user);
 
+            eosio::action {
+                eosio::permission_level{_self, N(active)},
+                N(eosio.token),
+                N(transfer),
+                eosio::currency::transfer {
+                    .from=_self, .to=user, .quantity=aw,
+                    .memo="Withdrawl from ECAF Arbitration Smart Contract."}
+            }.send(); 
+            sub_balance(filing_id, user, aw);
+            sub_balance(filing_id, _self, aw);
         }
 
         //@abit action
@@ -928,6 +939,7 @@ class arbitration : public eosio::contract {
         void ecafwithdraw(const uint64_t filing_id, const account_name to,
                           const asset amount) {
             require_auth(_self);
+            validate_asset(amount);
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_balance(filing_id, _self),"ERROR: No balance was found.");
             balance_index balances(_self, to_name(filing_id));
@@ -943,15 +955,14 @@ class arbitration : public eosio::contract {
                     .memo="Withdrawl from ECAF Arbitration Smart Contract."}
             }.send();
 
-            if (b_itr->amount == amount) {
-                balances.erase(b_itr);
-            }
+            sub_balance(filing_id, _self, amount);
         }
 
         //@abi action
         void payarb(const uint64_t filing_id, const account_name to,
                     const asset amount) {
             require_auth(_self);
+            validate_asset(amount);
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_balance(filing_id, _self),"ERROR: No balance was found.");
             eosio_assert(is_arbitrator(filing_id, to),
@@ -970,16 +981,13 @@ class arbitration : public eosio::contract {
             }.send();
 
             sub_balance(filing_id, _self, amount);
-
-            if (b_itr->amount == amount) {
-                balances.erase(b_itr);
-            }
         }
 
         //@abi action
         void refund(const uint64_t filing_id, const account_name to,
                     const asset amount) {
             require_auth(_self);
+            validate_asset(amount);
             eosio_assert(is_filing(filing_id), "ERROR: Filing does not exist.");
             eosio_assert(is_balance(filing_id, to),"ERROR: No balance was found.");
             eosio_assert(is_claimant(filing_id, to) || is_respondent(filing_id, to),
@@ -998,10 +1006,6 @@ class arbitration : public eosio::contract {
             }.send();
 
             sub_balance(filing_id, to, amount);
-
-            if (b_itr->amount == amount) {
-                balances.erase(b_itr);
-            }
         }
 
         void transferhandler(const uint64_t code) {
