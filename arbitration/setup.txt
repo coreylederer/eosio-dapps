@@ -1,6 +1,6 @@
-nodeos --verbose-http-errors --contracts-console --data-dir data --config-dir config
+nodeos --verbose-http-errors --contracts-console --data-dir data --config-dir config --unlock-timeout 9999999999
 
-keosd --http-server-address localhost:8899 --data-dir data
+keosd --http-server-address localhost:8900 --data-dir data
 
 cleos --wallet-url http://localhost:8899 wallet create
 
